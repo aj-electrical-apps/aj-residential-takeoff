@@ -734,6 +734,7 @@ tr.ex-off .ex-row span { color: var(--muted); text-decoration: line-through; }
 .pg-tile .pg-t { font-size: 11px; color: var(--muted, #888); font-family: var(--font-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .co-tbl tr.lbl-check td { background: #fff9db; }
 .co-tbl .lbl-why { font-size: 12px; color: #a66b00; }
+.co-tbl canvas.lbl-pic { display: block; max-width: 180px; max-height: 56px; background: #fff; border: 1px solid var(--line, #ccc); border-radius: 3px; }
 .repl-old { outline: 3px dashed #f76707; outline-offset: -3px; }
 .btn.tool.hl-room[aria-pressed="true"] { background: #d0ebff; border-color: #1c7ed6; color: #0b3d6e; }
 .note-item { display: grid; grid-template-columns: 220px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); align-items: start; }
@@ -4004,7 +4005,7 @@ function loadTess() {
   if (window.Tesseract) return Promise.resolve();
   return tessLoad || (tessLoad = new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = TESS + "tesseract.min.js"; sc.onload = res; sc.onerror = () => { tessLoad = null; rej(new Error("load")); }; document.head.appendChild(sc); }));
 }
-async function ocrWords(pg, r, what = "Reading the schedule…", small, sparse, turn = 0) {
+async function ocrWords(pg, r, what = "Reading the schedule…", small, sparse, turn = 0, psm) {
   await loadTess();
   // small: a short label like a sheet number, sized so its letters come out a size the reader likes
   // turn: 90 turns the picture clockwise first (for text written bottom to top), -90 the other way
@@ -4014,12 +4015,17 @@ async function ocrWords(pg, r, what = "Reading the schedule…", small, sparse, 
   const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
   if (turn === 90) x.setTransform(0, 1, -1, 0, ch, 0); else if (turn === -90) x.setTransform(0, -1, 1, 0, 0, cw);
   x.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, cw, ch); img.close && img.close();
+  if (small) { // short labels: plain black on white, so faint or hand-lettered strokes read better
+    x.setTransform(1, 0, 0, 1, 0, 0); const id = x.getImageData(0, 0, c.width, c.height), d = id.data;
+    for (let k = 0; k < d.length; k += 4) { const v = (d[k] * 3 + d[k + 1] * 6 + d[k + 2]) / 10 < 170 ? 0 : 255; d[k] = d[k + 1] = d[k + 2] = v; }
+    x.putImageData(id, 0, 0);
+  }
   // a box on the turned picture, back on the sheet
   const back = b => turn === 90 ? [b.y0, ch - b.x1, b.y1 - b.y0, b.x1 - b.x0, 1] : turn === -90 ? [cw - b.y1, b.x0, b.y1 - b.y0, b.x1 - b.x0, 2] : [b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0];
   const wk = await Tesseract.createWorker("eng", 1, { workerPath: TESS + "worker.min.js", corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1", langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
     logger: m => { if (m.status === "recognizing text") busy(what, m.progress, "Reading the picture of the schedule (OCR), on this computer"); } });
   try {
-    await wk.setParameters(small || sparse ? { tessedit_pageseg_mode: "11" } : { preserve_interword_spaces: "1" }); // 11: scattered words, like tags on a plan
+    await wk.setParameters(psm ? { tessedit_pageseg_mode: psm } : small || sparse ? { tessedit_pageseg_mode: "11" } : { preserve_interword_spaces: "1" }); // 11: scattered words, like tags on a plan
     const { data } = await wk.recognize(c);
     return (data.words || []).filter(w => w.text.trim() && w.confidence > 20).map(w => { const [bx, by, bw, bh, f] = back(w.bbox), o = [w.text.trim(), Math.round(r.x + bx / sc), Math.round(r.y + by / sc), Math.round(bw / sc), Math.round(bh / sc)]; if (f) o.push(f); return o; });
   } finally { wk.terminate(); }
@@ -5459,7 +5465,16 @@ let lblState = null;
 const wSize = w => w[5] ? w[3] : w[4];
 /* The words in the box as lines in reading order (straight, bottom to top, or top to bottom), pieces close together
    joined, so "D" "-3" reads as D-3. Then every sheet number in them, with how big it's written. */
-function sheetNos(words) {
+// the picture reader mixes up look-alikes: in the number part O is 0, I is 1, Z is 2, S is 5; in the letters 0 is O, 1 is I, 5 is S
+function sheetFix(t) {
+  const m = String(t).toUpperCase().replace(/[|]/g, "I").match(/^([A-Z0-9]{1,3}?)\s*([-.~_\u2013\u2014])?\s*([0-9OIZSB]{1,3})(\.[0-9OI]{1,2})?([A-Z])?$/);
+  if (!m) return "";
+  const L = m[1].replace(/0/g, "O").replace(/1/g, "I").replace(/5/g, "S").replace(/8/g, "B"), dg = v => v.replace(/O/g, "0").replace(/I/g, "1").replace(/Z/g, "2").replace(/S/g, "5").replace(/B/g, "8");
+  if (!/^[A-Z]+$/.test(L)) return "";
+  const out = L + (m[2] ? (m[2] === "." ? "." : "-") : "") + dg(m[3]) + (m[4] ? dg(m[4]) : "") + (m[5] || "");
+  return SHEET_NO.test(out) && out.match(SHEET_NO)[0] === out ? out : "";
+}
+function sheetNos(words, loose) {
   const lines = [];
   words.forEach(w => {
     const rot = w[5] || 0, sz = wSize(w), c = rot ? w[1] + w[3] / 2 : w[2] + w[4] / 2;
@@ -5474,7 +5489,11 @@ function sheetNos(words) {
     l.w.forEach((w, i) => { t += (i && start(w, l.rot) - end(l.w[i - 1], l.rot) > Math.max(wSize(w), wSize(l.w[i - 1])) * .25 ? " " : "") + w[0]; });
     text.push(t);
     const big = Math.max(...l.w.map(wSize)), cx = l.w.reduce((s, w) => s + w[1] + w[3] / 2, 0) / l.w.length, cy = l.w.reduce((s, w) => s + w[2] + w[4] / 2, 0) / l.w.length;
-    (t.match(new RegExp(SHEET_NO.source, "g")) || []).forEach(m => out.push({ name: m, sz: big, cx, cy }));
+    const found = new Set(), add = (m, f) => { if (found.has(m)) return; found.add(m); out.push({ name: m, sz: big * f, cx, cy }); };
+    (t.match(new RegExp(SHEET_NO.source, "g")) || []).forEach(m => add(m, 1));
+    // letter-spaced text, like "M E P - 2"
+    if (!found.size) (t.replace(/\s+/g, "").match(new RegExp(SHEET_NO.source, "g")) || []).forEach(m => add(m, .9));
+    if (!found.size && loose) { const f = sheetFix(t.replace(/^(SHEET|SHT|DWG)[^A-Z0-9]*/i, "")) || sheetFix(t.replace(/\s+/g, "")); if (f) add(f, .8); }
   });
   // a SHEET: label next to it counts for a lot (titles and page numbers can be big too)
   const lbl = words.filter(w => SHEET_LBL.test(w[0])).map(w => [w[1] + w[3] / 2, w[2] + w[4] / 2]);
@@ -5496,18 +5515,24 @@ async function autoName(pg0, r) {
       // a little extra room, since title blocks shift a bit from sheet to sheet
       const box = { x: Math.max(0, Math.round((fr.x - fr.w * .15) * W)), y: Math.max(0, Math.round((fr.y - fr.h * .15) * H)), w: Math.round(fr.w * 1.3 * W), h: Math.round(fr.h * 1.3 * H) };
       const words = (p.words || []).filter(w => { const cx = w[1] + w[3] / 2, cy = w[2] + w[4] / 2; return cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h; });
-      let how = "pdf", got = sheetNos(words);
+      let how = "pdf", got = sheetNos(words), turned = 0;
       // no sheet number in the PDF's text there (none at all, or the title block is drawn as lines): read the picture
       if (!got.nos.length) {
+        // each way the text could face, read as scattered words, then as one block of lines
+        let ok = false;
         for (const t of turns) {
-          let ow = []; try { ow = await ocrWords(p, box, `Reading sheet ${i + 1} of ${list.length} (picture reader)`, true, false, t); } catch (e) { break; }
-          const g = sheetNos(ow);
-          if (g.nos.length) { got = g; how = "ocr"; turns = [t, ...turns.filter(x => x !== t)]; break; }
-          if (!got.text) got = g;
+          for (const psm of ["11", "6"]) {
+            let ow = []; try { ow = await ocrWords(p, box, `Reading sheet ${i + 1} of ${list.length} (picture reader)`, true, false, t, psm); } catch (e) { ok = true; break; }
+            const g = sheetNos(ow, true);
+            if (g.nos.length) { got = g; how = "ocr"; turned = t; turns = [t, ...turns.filter(x => x !== t)]; ok = true; break; }
+            if (!got.text) got = g;
+          }
+          if (ok) break;
         }
+        if (!ok) turned = turns[0];
       }
       const name = got.nos.length ? got.nos[0].name : got.text.slice(0, 40);
-      rows.push({ p, i: pages.indexOf(p), name, use: !!name, why: !name ? "Nothing found there" : !got.nos.length ? "Doesn't look like a sheet number" : how === "ocr" ? "Read from the picture, check it" : "" });
+      rows.push({ p, i: pages.indexOf(p), name, box, turned: how === "pdf" ? (box.h > box.w * 1.3 ? 90 : 0) : turned, use: !!name, why: !name ? "Nothing found there" : !got.nos.length ? "Doesn't look like a sheet number" : how === "ocr" ? "Read from the picture, check it" : "" });
     }
   } finally { busy(null, null); }
   const seen = {}; rows.forEach(x => { if (x.name) seen[x.name] = (seen[x.name] || 0) + 1; });
@@ -5516,12 +5541,23 @@ async function autoName(pg0, r) {
 }
 function renderLbl() {
   const rows = lblState, bad = rows.filter(x => x.why).length;
-  $("lblHint").textContent = `${rows.length - bad} of ${rows.length} look right. Yellow ones need a look. Fix any name, uncheck any you don't want changed, then click Name sheets. You can add the title after the number, like "E-101 First Floor Lighting".`;
-  $("lblTbl").innerHTML = `<thead><tr><th>Use</th><th>Sheet</th><th>Name now</th><th>New name</th></tr></thead><tbody>` + rows.map((x, k) => `<tr class="${x.why ? "lbl-check" : ""}">
+  $("lblHint").textContent = `${rows.length - bad} of ${rows.length} look right. Yellow ones need a look. Fix any name, uncheck any you don't want changed, then click Name sheets. The picture shows what's in the box on each sheet, so you can type any name it missed. You can add the title after the number, like "E-101 First Floor Lighting".`;
+  $("lblTbl").innerHTML = `<thead><tr><th>Use</th><th>Sheet</th><th>Title block</th><th>Name now</th><th>New name</th></tr></thead><tbody>` + rows.map((x, k) => `<tr class="${x.why ? "lbl-check" : ""}">
     <td><input type="checkbox" data-k="${k}" data-f="use"${x.use ? " checked" : ""} aria-label="Use this name" style="width:auto;height:auto"></td>
-    <td class="n">${String(x.i + 1).padStart(3, "0")}</td><td>${esc(x.p.name || "")}</td>
+    <td class="n">${String(x.i + 1).padStart(3, "0")}</td><td><canvas class="lbl-pic" data-k="${k}" aria-label="The boxed spot on this sheet"></canvas></td><td>${esc(x.p.name || "")}</td>
     <td><input data-k="${k}" data-f="name" value="${esc(x.name)}" aria-label="New name">${x.why ? `<div class="lbl-why">${esc(x.why)}</div>` : ""}</td></tr>`).join("") + "</tbody>";
   const n = rows.filter(x => x.use && x.name.trim()).length; $("lblOk").textContent = `Name ${n} sheet${n === 1 ? "" : "s"}`;
+  $("lblTbl").querySelectorAll("canvas.lbl-pic").forEach(cv => lblPic(cv, rows[cv.dataset.k]));
+}
+async function lblPic(cv, x) {
+  if (!x || !x.box) return;
+  try {
+    const b = x.box, img = await createImageBitmap(x.p.blob, b.x, b.y, Math.max(1, b.w), Math.max(1, b.h)), t = x.turned, sw = t ? b.h : b.w, sh = t ? b.w : b.h, sc = Math.min(180 / sw, 56 / sh, 2);
+    cv.width = Math.max(1, Math.round(sw * sc)); cv.height = Math.max(1, Math.round(sh * sc));
+    const c = cv.getContext("2d"); c.fillStyle = "#fff"; c.fillRect(0, 0, cv.width, cv.height);
+    if (t === 90) c.setTransform(0, sc, -sc, 0, cv.width, 0); else if (t === -90) c.setTransform(0, -sc, sc, 0, 0, cv.height); else c.setTransform(sc, 0, 0, sc, 0, 0);
+    c.drawImage(img, 0, 0); img.close && img.close();
+  } catch (e) {}
 }
 $("lblTbl").addEventListener("change", e => {
   const k = e.target.dataset.k; if (k == null) return; const x = lblState[k];
