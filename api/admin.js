@@ -42,7 +42,7 @@ export async function POST(request) {
         const key = String(p.key || "").replace(/[^\w-]/g, "").slice(0, 30), name = String(p.name || "").trim().slice(0, 40);
         if (!key || seen.has(key)) continue;
         if (!name) return bad("Every position needs a name.");
-        seen.add(key); next.push({ key, name, perms: (p.perms || []).filter(x => ALL.includes(x)) });
+        seen.add(key); next.push({ key, name, perms: (p.perms || []).filter(x => ALL.includes(x)), known: ALL });
       }
       const gone = users.filter(x => !next.some(p => p.key === roleKey(x.role)));
       if (gone.length) return bad(`Move ${gone.map(x => x.name).join(", ")} to another position first.`);

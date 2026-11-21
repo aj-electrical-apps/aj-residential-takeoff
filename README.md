@@ -7,3 +7,5 @@ What's residential:
 - **Price & bid → Residential price:** every residential symbol on every sheet × the sheet's price (labor + material), with man hours, labor and material split out. Type over a quantity or price for one job, add lines, take a discount, print or copy.
 
 It's a single static page (`index.html`), with no build step. Vercel serves it as-is. The api folder, Blob saving, sign-in (`SESSION_SECRET`) and the Drive backup script work the same way as AJ Takeoff; give this site its own Vercel project and Blob store.
+
+**Mark installed (field install tracking):** the crew lead taps **✓ Mark installed**, then taps each light, receptacle, switch or linear run as it goes in, and it turns green (tap again to undo). **Installed** shows, for the whole job, how many of each item are installed and how many are left (runs in feet), and the number on the button drops as items are marked off. The taps save online in the job's field layer (`team/field/<job>/`), never in the estimate, so the PM and office see them within a minute. Only positions with **Mark items installed** (Admin page; on for Superintendent and Foreman by default) can tap; everyone can see progress.

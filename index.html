@@ -483,6 +483,24 @@ html.look-new body { font-family: var(--font-ui); }
 .mk-pin.focus .mk-pin-dot { stroke: #ffd43b; }
 .mk-pin.done .mk-pin-dot { fill: #2f9e44; }
 .mk-pin.done .mk-pin-lbl { fill: #1b6e2f; }
+/* installed (Jonathan 2026-11-21): the crew lead turns lights, receptacles and runs green as they go in */
+.mk-inst-ring { fill: rgba(47, 158, 68, .22); stroke: #2f9e44; }
+.mk-inst-chk { fill: #1b6e2f; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-linejoin: round; pointer-events: none; }
+.mk-inst-todo { fill: none; stroke: #e03131; stroke-dasharray: 3 2; opacity: .8; }
+.mk-inst-run { fill: none; stroke: #2f9e44; stroke-linecap: round; stroke-linejoin: round; opacity: .55; pointer-events: none; }
+.mk-inst-run.todo { stroke: #e03131; opacity: .3; }
+.role-field.installing .mk-office { opacity: .9; }
+.btn.tool.inst-tool[aria-pressed="true"] { background: #d3f9d8; border-color: #2f9e44; color: #0b3d17; }
+.no-install #instBtn { display: none !important; }
+.inst-find b { margin-left: 4px; background: #e03131; color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; }
+.inst-find b.ok { background: #2f9e44; }
+.inst-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.inst-tbl th, .inst-tbl td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line, #dee2e6); }
+.inst-tbl td.n, .inst-tbl th.n { text-align: right; white-space: nowrap; }
+.inst-tbl tr.sec td { background: var(--soft, #f1f3f5); font-weight: 700; }
+.inst-tbl td.left { color: #c92a2a; font-weight: 700; } .inst-tbl td.ok { color: #2b8a3e; font-weight: 700; }
+.inst-bar { height: 10px; border-radius: 5px; background: #ffe3e3; overflow: hidden; margin: 6px 0 12px; }
+.inst-bar i { display: block; height: 100%; background: #2f9e44; }
 .pin-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .pin-picks .btn[aria-pressed="true"] { background: #ffe3e3; border-color: #e03131; }
 .btn.pin-done { width: 100%; justify-content: center; background: #2f9e44; border-color: #2f9e44; color: #fff; font-weight: 700; padding: 12px; margin-bottom: 10px; }
@@ -1040,6 +1058,10 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
           <div class="pin-split">
             <button class="btn tool pin-tool" id="pinBtn" type="button" aria-pressed="false" title="Location pin: click a spot on the drawing and type a label (like “Stub up here”), so the guys can find it. Click a pin again to change or remove its label (P)">📍 Drop pin</button>
             <button class="btn tool pin-find" id="pinFindBtn" type="button" title="Find pins: every sheet with pins on it, and how many aren't marked in the field yet. Click one to go to it.">Find pins</button>
+          </div>
+          <div class="pin-split">
+            <button class="btn tool inst-tool" id="instBtn" type="button" aria-pressed="false" title="Mark installed: tap a light, receptacle or run once it's in to turn it green. Tap it again to undo (I)">✓ Mark installed</button>
+            <button class="btn tool inst-find" id="instFindBtn" type="button" title="Install progress: how many of each item are installed and how many are left, for the whole job">Installed</button>
           </div>
           <button class="btn tool hl-send" id="sendBtn" type="button" aria-pressed="false" hidden title="Drag a box around part of the drawing and send it to the people you pick. They can answer back.">Highlight &amp; send</button>
           <button class="btn tool hl-send" id="askPhotoBtn" type="button" hidden title="Take a picture, draw on it to show what you mean, and send your question to the people you pick">📷 Ask with a photo</button>
@@ -1613,6 +1635,16 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
     <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="pfOpen"> Only pins not marked yet</label>
     <div class="trk-wrap"><ul class="fw-list" id="pfList"></ul></div>
     <div class="actions"><button class="btn" type="button" id="pfClose">Close</button></div>
+  </div>
+</div>
+<div class="modal" id="instModal" hidden role="dialog" aria-modal="true" aria-labelledby="instTitle">
+  <div class="modal-card trk-card">
+    <h2 id="instTitle">Install progress</h2>
+    <p class="hint" id="instSum" aria-live="polite"></p>
+    <div class="inst-bar"><i id="instBarFill" style="width:0"></i></div>
+    <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="instOpen"> Only items with some left</label>
+    <div class="trk-wrap"><table class="inst-tbl" id="instTbl"></table></div>
+    <div class="actions"><span class="hint" id="instWhen"></span><span class="spacer"></span><button class="btn" type="button" id="instClose">Close</button></div>
   </div>
 </div>
 <div class="modal" id="pinModal" hidden role="dialog" aria-modal="true" aria-labelledby="pinTitle">
@@ -6162,7 +6194,8 @@ function setTool(t, dev) {
   if (t && hlMode) setHl(hlMode);
   const p = pages[current];
   if (t && t !== "calibrate" && !p) return;
-  if (fieldMode && t && ![...(can("scale") ? ["measure", "calibrate"] : []), ...(can("marks") ? ["place", "run", "erase", "pin"] : [])].includes(t)) return fieldNo();
+  if (fieldMode && t && ![...(can("scale") ? ["measure", "calibrate"] : []), ...(can("marks") ? ["place", "run", "erase", "pin"] : []), ...(can("install") ? ["install"] : [])].includes(t)) return fieldNo();
+  if (t === "install" && !can("install")) return toast("Your position can't mark items installed. An admin can turn on “Mark items installed” on the Admin page.");
   if (fieldMode && t === "measure" && !p.ftPerPx && !can("scale")) return toast("This sheet has no scale set yet, so it can't be measured.");
   if ((t === "measure" || t === "run") && !p.ftPerPx) { openScale(t); return; }
   if (t && tool === t && t !== "calibrate" && (t !== "place" || placeType === dev)) t = null; // clicking the active tool turns it off
@@ -6174,6 +6207,8 @@ function setTool(t, dev) {
   $("runBtn").setAttribute("aria-pressed", tool === "run");
   $("eraseBtn").setAttribute("aria-pressed", tool === "erase");
   $("pinBtn").setAttribute("aria-pressed", tool === "pin");
+  $("instBtn").setAttribute("aria-pressed", tool === "install");
+  document.documentElement.classList.toggle("installing", tool === "install");
   renderCounts(); renderWires();
   $("sheet").classList.toggle("tooling", !!tool);
   updateHint(); drawOverlay();
@@ -6192,6 +6227,7 @@ function updateHint() {
     t.innerHTML = `Placing <b></b>. Click the sheet to drop one. <b>${countOn(p, d.id)}</b> on this sheet. Right-click one to delete it.`;
     t.querySelector("b").textContent = nameOf(d);
   } else if (tool === "erase") t.textContent = "Click a symbol, a pin, or inside a yellow or red note box, to remove it.";
+  else if (tool === "install") { const c = instCount(p); t.innerHTML = `Tap a light, receptacle or run once it's in to turn it green. Tap again to undo. <b></b>`; t.querySelector("b").textContent = c.all ? `${c.left} of ${c.all} left on this sheet.` : "Nothing on this sheet to mark."; }
   else if (tool === "pin") t.textContent = "Click the spot on the drawing, then pick what it is. Click any pin to change it or mark it done in the field.";
   else if (tool === "calibrate") t.textContent = draft.length ? "Now click the other end of the known dimension." : "Click one end of a dimension you know.";
   else if (tool === "measure") {
@@ -6270,6 +6306,7 @@ function drawOverlay() {
   }
   { const off = svgEl("g", { class: "mk-office" }); while (g.firstChild) off.appendChild(g.firstChild); g.appendChild(off); } // faded for the field
   drawGhost(g, p, ns, ptsAttr);
+  drawInst(g, p, ns, ptsAttr);
   drawNotes(g, p, ns);
   drawPins(g, p);
   if (tool === "place" && hover) {
@@ -6328,6 +6365,7 @@ $("overlay").addEventListener("click", e => {
     saveMeta(p); drawOverlay(); updateHint(); renderCounts(); return;
   }
   if (tool === "pin") { if (e.detail > 1) return; return pinClick(p, q); }
+  if (tool === "install") return instClick(p, q);
   if (tool === "erase") {
     if (noteErase(p, q)) return;
     if (fieldMode) return ghostErase(p, q);
@@ -6373,6 +6411,7 @@ $("undoBtn").onclick = () => {
 };
 $("eraseBtn").onclick = () => setTool("erase");
 $("pinBtn").onclick = () => setTool("pin");
+$("instBtn").onclick = () => setTool("install");
 $("cancelToolBtn").onclick = () => { if (tool === "calibrate") { setTool(null); showScaleModal(false); } else setTool(null); };
 $("measureBtn").onclick = () => setTool("measure");
 $("runBtn").onclick = () => { if (tool !== "run") { runType = null; contRun = null; } setTool("run"); };
@@ -7568,7 +7607,7 @@ $("labelForm").addEventListener("submit", e => {
 const QS_TABS = [["order", "Order", "supplier order approve field"], ["hours", "Man hours", "labor hours category super"], ["count", "Count sheet", "quantities count"], ["sup", "Supplier sheet", "material list order quote vendor"], ["bid", "Bid sheet", "labor hours price money estimate"],
   ["prop", "Proposal", "quote send customer price"], ["rate", "Labor rates", "hours table"], ["asm", "Parts lists", "assemblies boxes rings"], ["ug", "Underground sub", "trench ditch"], ["notes", "Notes list", "highlights"]];
 const QS_BTNS = [["uploadBtn", "pdf plans add sheets"], ["fileBtn", "save open file email drive"], ["newJobBtn", "start"], ["jobBtn", "jobs open switch"], ["notesBtn", "highlights"], ["coBtn", "co extra"], ["trkBtn", "tracker won lost"],
-  ["cmpBtn", "compare"], ["rsBtn", "second screen monitor"], ["tabPin", "pin tab"], ["measureBtn", "distance ruler"], ["runBtn", "conduit wire footage draw"], ["scaleBtn", "scale"], ["eraseBtn", "delete remove"], ["pinBtn", "pin point dot location label spot"], ["pinFindBtn", "find pins marked field list"],
+  ["cmpBtn", "compare"], ["rsBtn", "second screen monitor"], ["tabPin", "pin tab"], ["measureBtn", "distance ruler"], ["runBtn", "conduit wire footage draw"], ["scaleBtn", "scale"], ["eraseBtn", "delete remove"], ["pinBtn", "pin point dot location label spot"], ["instBtn", "installed install done complete green crew lead progress"], ["instFindBtn", "installed left remaining progress count done"], ["pinFindBtn", "find pins marked field list"],
   ["hlYBtn", "highlight"], ["hlRBtn", "highlight supplier"], ["roomBtn", "typical repeat"], ["replBtn", "addendum revision revised"], ["lblBtn", "name sheets title block"], ["symBtn", "auto count symbols"],
   ["pnlBtn", "breakers panel schedule"], ["schedBtn", "fixture schedule lights"], ["impBtn", "import excel csv other app"], ["addCountBtn", "new count fixture type"], ["addWireBtn", "new conduit wire type"]];
 const QS_ICO = { count: '<svg viewBox="-10 -10 20 20"><circle r="6" fill="currentColor"/></svg>', new: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3v10M3 8h10"/></svg>',
@@ -7678,6 +7717,7 @@ document.addEventListener("keydown", e => {
     else if (e.key === "l" || e.key === "L") setTool("run");
     else if (e.key === "e" || e.key === "E") setTool("erase");
     else if (e.key === "p" || e.key === "P") setTool("pin");
+    else if ((e.key === "i" || e.key === "I") && can("install")) setTool("install");
     else if (e.key === "+" || e.key === "=") zoomCenter(1.4);
     else if (e.key === "-" || e.key === "_") zoomCenter(1 / 1.4);
   }
@@ -8409,7 +8449,9 @@ async function openJob(j) {
   dropCmp(); sel.clear(); undoStack = []; redoStack = []; updHist(); tabs = [];
   if (teamOn) setDrive(j && j.teamUrl ? "ok" : "idle", j && j.teamUrl ? "Saved online" : "Saved on this computer");
   else setDrive(j && j.driveJsonId ? "ok" : "idle", j && j.driveJsonId ? "Saved to Google Drive" : null);
+  fieldLayer.inst = {}; fieldLayer.pinDone = {}; // the last job's installed marks never show on this one
   if (!j) return loadExamples();
+  instLoadLocal();
   pages = await loadSaved(j.id);
   current = Math.max(0, pages.findIndex(p => !p.name));
   loadTabs();
@@ -8550,7 +8592,7 @@ async function roleCheck() {
     isAdmin = lsGet("aj-admin") === "1"; signedIn = lsGet("aj-signed") === "1";
     const pp = lsGet("aj-perms"); if (pp != null && !window.AJ_ROLE) { myPerms = new Set(pp.split(",").filter(Boolean)); posName = lsGet("aj-pos") || ""; }
   }
-  if (window.AJ_ROLE === "field" || (role === "field" && !myPerms)) myPerms = new Set(["hours", "counts", "order", "marks", "scale"]);
+  if (window.AJ_ROLE === "field" || (role === "field" && !myPerms)) myPerms = new Set(["hours", "counts", "order", "marks", "scale", "install"]);
   applyLang(); meBtnShow();
   if (role === "field" && !fieldMode) { enterField(); applyPerms(); }
 }
@@ -8857,7 +8899,7 @@ async function teamMoveUp() {
 var teamOffline = false, isAdmin = false, signedIn = false;
 // what this person's position can do; everything until the website says otherwise (and always off the website)
 var myPerms = null, posName = "";
-const PERM_KEYS = ["edit", "cost", "hours", "tracker", "lists", "counts", "order", "marks", "scale"];
+const PERM_KEYS = ["edit", "cost", "hours", "tracker", "lists", "counts", "order", "marks", "scale", "install"];
 const TAB_NEEDS = { res: "cost", bid: "cost", prop: "cost", rate: "lists", asm: "lists", count: "counts", sup: "counts", ug: "counts", order: "order", hours: "hours" };
 function can(k) { return !myPerms || myPerms.has(k); }
 function tabOk(v) { const n = TAB_NEEDS[v]; return !n || can(n); }
@@ -9612,7 +9654,7 @@ function drawEditLinks() {
 /* Working without internet */
 function fieldKeep() {
   if (!job) return;
-  const out = { base: fieldUrl, order: fieldLayer.order, gone: fieldLayer.gone, scales: fieldLayer.scales || {}, pages: {} };
+  const out = { base: fieldUrl, order: fieldLayer.order, gone: fieldLayer.gone, scales: fieldLayer.scales || {}, pinDone: fieldLayer.pinDone || {}, inst: fieldLayer.inst || {}, pages: {} };
   pages.forEach(p => { if (p.ghost && (p.ghost.devices.length || p.ghost.runs.length)) out.pages[p.id] = p.ghost; });
   lsSet("aj-fieldq-" + job.id, JSON.stringify(out));
 }
@@ -9680,6 +9722,7 @@ function fieldApply(layer, url) {
   });
   ghostBtnShow(); drawOverlay(); renderCounts();
   if (!$("takeoffModal").hidden && tsView === "order") renderTakeoff();
+  if (!$("instModal").hidden) drawInstFind();
 }
 async function fieldNewest(j) {
   const r = await fetch(`/api/field?id=${segId(j.id)}`, { cache: "no-store" });
@@ -9720,8 +9763,9 @@ async function fieldPush() {
     const out = { app: "aj-takeoff", kind: "field-layer", v: 1, savedAt: new Date().toISOString(), by: teamWho, gone: [...gone].slice(-2000), pages: {},
       markups: fieldLayer.markups || theirs && theirs.markups || null,
       order: { ...(theirs && theirs.order || {}), ...fieldLayer.order, qty: { ...(theirs && theirs.order && theirs.order.qty || {}), ...fieldLayer.order.qty } },
-      scales: { ...(theirs && theirs.scales || {}), ...(fieldLayer.scales || {}) }, pinDone: { ...(theirs && theirs.pinDone || {}) } };
+      scales: { ...(theirs && theirs.scales || {}), ...(fieldLayer.scales || {}) }, pinDone: { ...(theirs && theirs.pinDone || {}) }, inst: { ...(theirs && theirs.inst || {}) } };
     Object.entries(fieldLayer.pinDone || {}).forEach(([id, r]) => { const o = out.pinDone[id]; if (!o || r.at > o.at) out.pinDone[id] = r; });
+    Object.entries(fieldLayer.inst || {}).forEach(([id, r]) => { const o = out.inst[id]; if (!o || r.at > o.at) out.inst[id] = r; }); // newest tap wins
     pages.forEach(p => {
       const mine = ghostOf(p), th = theirs && theirs.pages && theirs.pages[p.id] || { devices: [], runs: [], pins: [] };
       const merge = (a, b) => [...new Map([...byId(b), ...byId(a)]).values()].filter(x => !gone.has(x.id));
@@ -9729,7 +9773,7 @@ async function fieldPush() {
       if (p.ghost.devices.length || p.ghost.runs.length || p.ghost.pins.length) out.pages[p.id] = p.ghost;
     });
     if (theirs && theirs.pages) Object.keys(theirs.pages).forEach(id => { if (!out.pages[id] && !pages.some(p => p.id === id)) out.pages[id] = theirs.pages[id]; });
-    fieldLayer.order = out.order; fieldLayer.gone = out.gone; fieldLayer.scales = out.scales; fieldLayer.pinDone = out.pinDone;
+    fieldLayer.order = out.order; fieldLayer.gone = out.gone; fieldLayer.scales = out.scales; fieldLayer.pinDone = out.pinDone; fieldLayer.inst = out.inst;
     const details = b64url({ by: teamWho.slice(0, 30), u: out.savedAt });
     const url = await (window.AJ_TEAM_PUT ? window.AJ_TEAM_PUT(`team/field/${segId(j.id)}/m${details}.json`, new Blob([JSON.stringify(out)], { type: "application/json" }), "application/json")
       : (async () => { blobClient = blobClient || await import("./blob-client.js");
@@ -9879,6 +9923,128 @@ function pinGo(i, m) {
 $("pinFindBtn").onclick = () => { if (tool === "pin") setTool(null); drawPinFind(); $("pfModal").hidden = false; };
 $("pfOpen").onchange = drawPinFind;
 $("pfClose").onclick = () => { $("pfModal").hidden = true; };
+/* Installed (Jonathan 2026-11-21): "as the field guys install it the lead on that crew can turn stuff green as it's completed,
+   and it should show a count that drops as they're marked off, so the PM can see what's been done."
+   Every office symbol and run on the drawings can be tapped green with Mark installed (positions with "Mark items installed").
+   The taps go in the job's field layer (fieldLayer.inst, key -> { d, by, at }), never the estimate, so the office and every
+   field login see them; the newest tap of an item wins when two people save. Installed shows what's left of each item. */
+const instKeyD = (p, v) => v.id ? "d:" + v.id : `d:${p.id}:${v.t}:${Math.round(v.x)}:${Math.round(v.y)}`;
+const instKeyR = r => "r:" + r.id;
+const instRec = key => (fieldLayer.inst || {})[key];
+const instIs = key => { const r = instRec(key); return !!(r && r.d); };
+const instDevs = p => (p.devices || []).filter(v => devInfo(v.t));
+const instRuns = p => (p.runs || []).filter(r => r.id && r.pts && r.pts.length > 1);
+function instCount(p) {
+  let all = 0, left = 0;
+  (p ? [p] : pages).forEach(pg => {
+    instDevs(pg).forEach(v => { all++; if (!instIs(instKeyD(pg, v))) left++; });
+    instRuns(pg).forEach(r => { all++; if (!instIs(instKeyR(r))) left++; });
+  });
+  return { all, left };
+}
+function instClick(p, q) {
+  if (!can("install")) return toast("Your position can't mark items installed.");
+  let best = null, bd = 22 / k, kind = null;
+  instDevs(p).forEach(v => { const d = devInfo(v.t); if (hideSecs.has(cntSecKey(d))) return; const dd = dist([v.x, v.y], q); if (dd < bd) { bd = dd; best = v; kind = "d"; } });
+  if (!best) {
+    bd = 12 / k;
+    const seg = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L)) : 0; return dist(q, [a[0] + t * dx, a[1] + t * dy]); };
+    instRuns(p).forEach(r => { for (let i = 1; i < r.pts.length; i++) { const dd = seg(r.pts[i - 1], r.pts[i]); if (dd < bd) { bd = dd; best = r; kind = "r"; } } });
+  }
+  if (!best) return toast("Tap right on a symbol or a run to mark it installed.");
+  const key = kind === "d" ? instKeyD(p, best) : instKeyR(best), rec = { d: !instIs(key), by: teamWho || "", at: Date.now() };
+  fieldLayer.inst = { ...(fieldLayer.inst || {}), [key]: rec };
+  if (teamOn && job) fieldTouch(); else instLocal();
+  drawOverlay(); updateHint(); instBadge();
+  const nm = kind === "d" ? nameOf(devInfo(best.t)) : best.name || "Run";
+  const t = instType(kind === "d" ? "d" + best.t : "r" + (best.typeId || ""));
+  const rest = t.done ? `Every ${t.name} is installed.` : `${t.left} ${t.unit} left.`;
+  toast(rec.d ? `✓ ${nm} installed. ${rest}` : `${nm} is back to not installed. ${rest}`);
+}
+// without team saving (one computer), the taps stay on this device
+function instLocal() { if (job) lsSet("aj-inst-" + job.id, JSON.stringify(fieldLayer.inst || {})); }
+function instLoadLocal() { if (teamOn || !job) return; try { fieldLayer.inst = JSON.parse(lsGet("aj-inst-" + job.id) || "{}"); } catch (e) { fieldLayer.inst = {}; } }
+// totals for the whole job, by item: symbols by count, runs by footage
+function instTotals() {
+  const rows = new Map();
+  pages.forEach((pg, i) => {
+    instDevs(pg).forEach(v => {
+      const d = devInfo(v.t), key = "d" + v.t, r = rows.get(key) || { key, kind: "d", sec: cntSecKey(d), name: nameOf(d), all: 0, done: 0, sheets: {} };
+      const on = instIs(instKeyD(pg, v)); r.all++; if (on) r.done++;
+      const sh = r.sheets[i] || (r.sheets[i] = { all: 0, done: 0 }); sh.all++; if (on) sh.done++;
+      rows.set(key, r);
+    });
+    instRuns(pg).forEach(run => {
+      const w = wireOf(run.typeId), key = "r" + (run.typeId || ""), ft = pg.ftPerPx ? run.px * pg.ftPerPx : 0;
+      const r = rows.get(key) || { key, kind: "r", sec: "~runs", name: w ? wireLabel(w) : "Runs (no type)", all: 0, done: 0, ft: 0, ftDone: 0, sheets: {} };
+      const on = instIs(instKeyR(run)); r.all++; r.ft += ft; if (on) { r.done++; r.ftDone += ft; }
+      const sh = r.sheets[i] || (r.sheets[i] = { all: 0, done: 0 }); sh.all++; if (on) sh.done++;
+      rows.set(key, r);
+    });
+  });
+  return [...rows.values()];
+}
+function instType(key) {
+  const r = instTotals().find(x => x.key === key);
+  if (!r) return { left: 0, unit: "", name: "", done: true };
+  const done = r.done >= r.all;
+  if (r.kind === "r" && r.ft) return { left: Math.round(r.ft - r.ftDone).toLocaleString(), unit: "ft of " + r.name, name: r.name, done };
+  return { left: r.all - r.done, unit: r.name, name: r.name, done };
+}
+function instBadge() {
+  const { all, left } = instCount(), b = $("instFindBtn");
+  b.textContent = "Installed";
+  if (all) { const n = document.createElement("b"); n.textContent = left ? left + " left" : "all ✓"; if (!left) n.className = "ok"; b.appendChild(n); }
+  b.title = all ? `${all - left} of ${all} items installed, ${left} left. Click to see each item.` : "Nothing on the drawings yet to mark installed.";
+}
+function drawInstFind() {
+  const rows = instTotals(), only = $("instOpen").checked, tb = $("instTbl"), { all, left } = instCount();
+  $("instSum").textContent = all ? `${all - left} of ${all} items installed · ${left} left` : "Nothing on the drawings yet. Symbols and runs show up here as they're taken off.";
+  $("instBarFill").style.width = all ? Math.round((all - left) / all * 100) + "%" : "0";
+  let last = 0; Object.values(fieldLayer.inst || {}).forEach(r => { if (r.at > last) last = r.at; });
+  const lr = Object.values(fieldLayer.inst || {}).find(r => r.at === last);
+  $("instWhen").textContent = last ? `Last marked ${whenSaved(last)}${lr && lr.by ? " by " + lr.by : ""}` : "";
+  tb.replaceChildren();
+  const tr = (cells, cls) => { const r = document.createElement("tr"); if (cls) r.className = cls; cells.forEach(([t, c, tag]) => { const td = document.createElement(tag || "td"); td.textContent = t; if (c) td.className = c; r.appendChild(td); }); tb.appendChild(r); return r; };
+  tr([["Item"], ["Total", "n", "th"], ["Installed", "n", "th"], ["Left", "n", "th"]].map(([t, c, g]) => [t, c, g || "th"]));
+  const secs = new Map();
+  rows.forEach(r => { if (only && r.done >= r.all) return; (secs.get(r.sec) || secs.set(r.sec, []).get(r.sec)).push(r); });
+  const secName = k => k === "~runs" ? "Runs (linear feet)" : RES_SECN[k] || (catOf(k) ? catOf(k).name : k === "other" ? "Other" : SECTION[k] || (GROUPS.find(g => g.key === k) || {}).name || k);
+  [...secs.keys()].sort((a, b) => (a === "~runs") - (b === "~runs")).forEach(k => {
+    tr([[secName(k)], [""], [""], [""]], "sec");
+    secs.get(k).forEach(r => {
+      const lf = r.kind === "r" && r.ft;
+      const nLeft = r.all - r.done;
+      const row = tr([[r.name], [lf ? `${Math.round(r.ft).toLocaleString()} ft` : r.all, "n"], [lf ? `${Math.round(r.ftDone).toLocaleString()} ft` : r.done, "n"],
+        [lf ? (nLeft ? `${Math.round(r.ft - r.ftDone).toLocaleString()} ft` : "✓") : nLeft || "✓", "n " + (nLeft ? "left" : "ok")]]);
+      const where = Object.entries(r.sheets).filter(([, s]) => s.all > s.done).map(([i, s]) => `Sheet ${+i + 1}${pages[i].name ? " · " + pages[i].name : ""}: ${s.all - s.done} left`);
+      if (where.length) row.title = where.join("\n");
+    });
+  });
+  if (!tb.children.length || tb.children.length === 1 && all) tr([["Everything is installed. ✓", "ok"], [""], [""], [""]]);
+}
+$("instFindBtn").onclick = () => { drawInstFind(); $("instModal").hidden = false; if (teamOn && job && !fieldDirty) fieldLoad(); };
+$("instOpen").onchange = drawInstFind;
+$("instClose").onclick = () => { $("instModal").hidden = true; };
+function drawInst(g0, p, ns, ptsAttr) {
+  const g = svgEl("g", { class: "mk-inst" }), on = tool === "install";
+  instRuns(p).forEach(r => {
+    const d = instIs(instKeyR(r)); if (!d && !on) return;
+    g.appendChild(svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-inst-run" + (d ? "" : " todo"), "stroke-width": 7 / k }));
+  });
+  instDevs(p).forEach(v => {
+    const d = devInfo(v.t); if (hideSecs.has(cntSecKey(d)) && v.t !== findId) return;
+    const key = instKeyD(p, v), done = instIs(key);
+    if (done) {
+      const c = svgEl("circle", { cx: v.x, cy: v.y, r: 13 / k, class: "mk-inst-ring", "stroke-width": 2 / k });
+      const rec = instRec(key); c.appendChild(svgEl("title", {}, `${nameOf(d)} · installed${rec.by ? " by " + rec.by : ""} ${whenSaved(rec.at)}`));
+      g.appendChild(c);
+      g.appendChild(svgEl("text", { x: v.x + 8 / k, y: v.y + 14 / k, class: "mk-inst-chk", "font-size": 13 / k, "stroke-width": 3 / k }, "✓"));
+    } else if (on) g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 13 / k, class: "mk-inst-todo", "stroke-width": 1.5 / k }));
+  });
+  g0.insertBefore(g, g0.firstChild);
+  clearTimeout(drawInst.t); drawInst.t = setTimeout(instBadge, 300);
+}
 function drawPins(g0, p) {
   const one = (m, field) => {
     const dn = pinDoneOf(m).d, gp = svgEl("g", { class: "mk-pin" + (field ? " field" : "") + (dn ? " done" : "") + (m.id === pinFocus ? " focus" : "") });
