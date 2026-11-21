@@ -899,7 +899,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v7<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v8<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="msgBtn" type="button" hidden title="Parts of the drawings people sent you, and your answers">Messages</button>
@@ -3032,6 +3032,14 @@ RES_ITEMS.forEach(it => {
   RES_IMG["R-" + it.id] = im;
 });
 const RES_MARK = 1.8; // residential symbols draw a little bigger than the commercial dots so the lettering reads
+/* a residential symbol's size on the sheet (Jonathan 2026-11-21: "its to small to read when zoomed in"): never smaller than
+   8 screen px, but once you zoom in it grows with the drawing, about the size of a plan's own fixture symbol (~1/2"),
+   so the lettering gets bigger the closer you zoom. Sheets without a known print size count as 36" wide. */
+function devR(p, d) {
+  if (!d || !d.sym || !p) return 8 / k;
+  const img = $("sheetImg"), ppi = p.pxPerInch || (img && img.naturalWidth ? img.naturalWidth / 36 : 100);
+  return Math.max(8 / k, ppi * .16);
+}
 function resSymEl(d, cx, cy, r, cls) {
   const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
   g.setAttribute("class", "rs-sym " + (cls || ""));
@@ -6380,10 +6388,11 @@ function drawOverlay() {
   for (const v of p.devices) {
     const d = devInfo(v.t); if (!d) continue;
     if (hideSecs.has(cntSecKey(d)) && v.t !== findId) continue;
-    if (findId && v.t === findId) g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 20 / k, class: "mk-find", ...ns }));
+    const sz = devR(p, d) * k / 8; // 1 until the symbol grows with the zoom
+    if (findId && v.t === findId) g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 20 / k * sz, class: "mk-find", ...ns }));
     const lit = sel.has(v) || v === ctxTarget;
-    if (lit || v === hoverDev) g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 14 / k, class: "mk-glow" + (lit ? "" : " hover"), ...ns }));
-    const e = shapeEl(d, v.x, v.y, 8 / k, "mk-dev");
+    if (lit || v === hoverDev) g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 14 / k * sz, class: "mk-glow" + (lit ? "" : " hover"), ...ns }));
+    const e = shapeEl(d, v.x, v.y, devR(p, d), "mk-dev");
     e.setAttribute("vector-effect", "non-scaling-stroke");
     if (!inScope(v)) e.setAttribute("opacity", ".3");
     else if (findId && v.t !== findId) e.setAttribute("opacity", ".25");
@@ -6398,7 +6407,7 @@ function drawOverlay() {
   drawNotes(g, p, ns);
   drawPins(g, p);
   if (tool === "place" && hover) {
-    const e = shapeEl(devInfo(placeType), hover[0], hover[1], 8 / k, "mk-dev");
+    const e = shapeEl(devInfo(placeType), hover[0], hover[1], devR(p, devInfo(placeType)), "mk-dev");
     e.setAttribute("opacity", ".55"); e.setAttribute("vector-effect", "non-scaling-stroke"); g.appendChild(e);
   }
   const live = draft.length && hover ? [...draft, hover] : draft;
@@ -10057,7 +10066,7 @@ function instCount(p) {
 function instClick(p, q) {
   if (!can("install")) return toast("Your position can't mark items installed.");
   let best = null, bd = 22 / k, kind = null;
-  instDevs(p).forEach(v => { const d = devInfo(v.t); if (hideSecs.has(cntSecKey(d))) return; const dd = dist([v.x, v.y], q); if (dd < bd) { bd = dd; best = v; kind = "d"; } });
+  instDevs(p).forEach(v => { const d = devInfo(v.t); if (hideSecs.has(cntSecKey(d))) return; const dd = dist([v.x, v.y], q); if (dd < Math.max(22 / k, devR(p, d) * 1.6) && dd < (best ? bd : Infinity)) { bd = dd; best = v; kind = "d"; } });
   if (!best) {
     bd = 12 / k;
     const seg = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L)) : 0; return dist(q, [a[0] + t * dx, a[1] + t * dy]); };
@@ -10147,14 +10156,14 @@ function drawInst(g0, p, ns, ptsAttr) {
   });
   instDevs(p).forEach(v => {
     const d = devInfo(v.t); if (hideSecs.has(cntSecKey(d)) && v.t !== findId) return;
-    const key = instKeyD(p, v), done = instIs(key);
+    const key = instKeyD(p, v), done = instIs(key), sc = devR(p, d) * k / 8;
     if (done) {
-      g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k, class: "mk-inst-glow" }));
-      const c = svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k, class: "mk-inst-ring", "stroke-width": 2.5 / k });
+      g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k * sc, class: "mk-inst-glow" }));
+      const c = svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k * sc, class: "mk-inst-ring", "stroke-width": 2.5 / k });
       const rec = instRec(key); c.appendChild(svgEl("title", {}, `${nameOf(d)} · installed${rec.by ? " by " + rec.by : ""} ${whenSaved(rec.at)}`));
       top.appendChild(c);
-      top.appendChild(svgEl("text", { x: v.x + 10 / k, y: v.y + 17 / k, class: "mk-inst-chk", "font-size": 14 / k, "stroke-width": 3 / k }, "✓"));
-    } else if (on) top.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k, class: "mk-inst-todo", "stroke-width": 1.5 / k }));
+      top.appendChild(svgEl("text", { x: v.x + 10 / k * sc, y: v.y + 17 / k * sc, class: "mk-inst-chk", "font-size": 14 / k * Math.min(sc, 3), "stroke-width": 3 / k }, "✓"));
+    } else if (on) top.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k * sc, class: "mk-inst-todo", "stroke-width": 1.5 / k }));
   });
   g0.insertBefore(g, g0.firstChild); g0.appendChild(top);
   clearTimeout(drawInst.t); drawInst.t = setTimeout(instBadge, 300);
@@ -10182,8 +10191,9 @@ function drawGhost(g0, p, ns, ptsAttr) {
   });
   p.ghost.devices.forEach(v => {
     const d = devInfo(v.t); if (!d) return;
-    g0.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 13 / k, class: "mk-ghost-ring", ...ns }));
-    const e = shapeEl(d, v.x, v.y, 8 / k, "mk-dev"); e.setAttribute("vector-effect", "non-scaling-stroke"); e.setAttribute("opacity", ".5");
+    const sc = devR(p, d) * k / 8;
+    g0.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 13 / k * sc, class: "mk-ghost-ring", ...ns }));
+    const e = shapeEl(d, v.x, v.y, devR(p, d), "mk-dev"); e.setAttribute("vector-effect", "non-scaling-stroke"); e.setAttribute("opacity", ".5");
     e.appendChild(svgEl("title", {}, `Field: ${nameOf(d)}${v.by ? " · by " + v.by : ""}`)); g0.appendChild(e);
   });
 }
