@@ -3989,7 +3989,10 @@ function textWords(items, vp) {
   items.forEach(it => {
     const s = (it.str || "").trim(); if (!s) return;
     const t = pdfjsLib.Util.transform(vp.transform, it.transform), h = Math.hypot(t[2], t[3]) || Math.hypot(t[0], t[1]), w = (it.width || 0) * vp.scale;
-    if (Math.abs(t[1]) > Math.abs(t[0])) out.push([s, Math.round(t[4] - h), Math.round(t[5] - w), Math.round(h), Math.round(w), 1]); // turned 90 degrees
+    if (Math.abs(t[1]) > Math.abs(t[0])) { // turned 90 degrees: 1 reads bottom to top (the usual way), 2 top to bottom
+      if (t[1] < 0) out.push([s, Math.round(t[4] - h), Math.round(t[5] - w), Math.round(h), Math.round(w), 1]);
+      else out.push([s, Math.round(t[4]), Math.round(t[5]), Math.round(h), Math.round(w), 2]);
+    }
     else out.push([s, Math.round(t[4]), Math.round(t[5] - h), Math.round(w), Math.round(h)]);
   });
   return out;
@@ -4000,18 +4003,24 @@ function loadTess() {
   if (window.Tesseract) return Promise.resolve();
   return tessLoad || (tessLoad = new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = TESS + "tesseract.min.js"; sc.onload = res; sc.onerror = () => { tessLoad = null; rej(new Error("load")); }; document.head.appendChild(sc); }));
 }
-async function ocrWords(pg, r, what = "Reading the schedule…", small, sparse) {
+async function ocrWords(pg, r, what = "Reading the schedule…", small, sparse, turn = 0) {
   await loadTess();
   // small: a short label like a sheet number, sized so its letters come out a size the reader likes
-  const img = await createImageBitmap(pg.blob), sc = small ? Math.max(.5, Math.min(3, 160 / r.h)) : Math.max(1, Math.min(3, 3000 / Math.max(r.w, r.h))), c = document.createElement("canvas");
-  c.width = Math.round(r.w * sc); c.height = Math.round(r.h * sc);
-  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, c.width, c.height); img.close && img.close();
+  // turn: 90 turns the picture clockwise first (for text written bottom to top), -90 the other way
+  const img = await createImageBitmap(pg.blob), sc = small ? Math.max(.5, Math.min(3, 160 / (turn ? r.w : r.h))) : Math.max(1, Math.min(3, 3000 / Math.max(r.w, r.h))), c = document.createElement("canvas");
+  const cw = Math.round(r.w * sc), ch = Math.round(r.h * sc);
+  c.width = turn ? ch : cw; c.height = turn ? cw : ch;
+  const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+  if (turn === 90) x.setTransform(0, 1, -1, 0, ch, 0); else if (turn === -90) x.setTransform(0, -1, 1, 0, 0, cw);
+  x.drawImage(img, r.x, r.y, r.w, r.h, 0, 0, cw, ch); img.close && img.close();
+  // a box on the turned picture, back on the sheet
+  const back = b => turn === 90 ? [b.y0, ch - b.x1, b.y1 - b.y0, b.x1 - b.x0, 1] : turn === -90 ? [cw - b.y1, b.x0, b.y1 - b.y0, b.x1 - b.x0, 2] : [b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0];
   const wk = await Tesseract.createWorker("eng", 1, { workerPath: TESS + "worker.min.js", corePath: "https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1", langPath: "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int",
     logger: m => { if (m.status === "recognizing text") busy(what, m.progress, "Reading the picture of the schedule (OCR), on this computer"); } });
   try {
     await wk.setParameters(small || sparse ? { tessedit_pageseg_mode: "11" } : { preserve_interword_spaces: "1" }); // 11: scattered words, like tags on a plan
     const { data } = await wk.recognize(c);
-    return (data.words || []).filter(w => w.text.trim() && w.confidence > 20).map(w => [w.text.trim(), Math.round(r.x + w.bbox.x0 / sc), Math.round(r.y + w.bbox.y0 / sc), Math.round((w.bbox.x1 - w.bbox.x0) / sc), Math.round((w.bbox.y1 - w.bbox.y0) / sc)]);
+    return (data.words || []).filter(w => w.text.trim() && w.confidence > 20).map(w => { const [bx, by, bw, bh, f] = back(w.bbox), o = [w.text.trim(), Math.round(r.x + bx / sc), Math.round(r.y + by / sc), Math.round(bw / sc), Math.round(bh / sc)]; if (f) o.push(f); return o; });
   } finally { wk.terminate(); }
 }
 // which app field a schedule column feeds, from its heading
@@ -5417,7 +5426,7 @@ function pickPages(pdf, fileName, { multi = true, all = false, title } = {}) {
           const x = cv.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, cv.width, cv.height);
           await pg.render({ canvasContext: x, viewport: vp }).promise;
           // the sheet number is usually the biggest short text near the bottom right, like E-101
-          try { const it = (await pg.getTextContent()).items.filter(t => /^[A-Z]{1,3}[-.]?\d{1,3}(\.\d+)?[A-Z]?$/.test(t.str.trim())); if (it.length) { it.sort((a, b) => Math.abs(b.transform[3]) - Math.abs(a.transform[3]) || b.transform[4] - a.transform[4]); tx.textContent = it[0].str.trim(); } } catch (er) {}
+          try { const it = (await pg.getTextContent()).items.filter(t => /^[A-Z]{1,3}[-.]?\d{1,3}(\.\d+)?[A-Z]?$/.test(t.str.trim())); if (it.length) { const sz = t => Math.hypot(t.transform[2], t.transform[3]); it.sort((a, b) => sz(b) - sz(a) || b.transform[4] - a.transform[4]); tx.textContent = it[0].str.trim(); } } catch (er) {}
           pg.cleanup();
         } catch (er) {}
       });
@@ -5443,12 +5452,41 @@ function pickPages(pdf, fileName, { multi = true, all = false, title } = {}) {
 /* Auto-name sheets: one box around the sheet number on one sheet; the same spot on every sheet is read
    (the PDF's own text, or OCR for scans) and the names are shown to check before they're used. */
 const SHEET_NO = /\b[A-Z]{1,3}[-.]?\d{1,3}(?:\.\d{1,2})?[A-Z]?\b/;
+const SHEET_LBL = /^(SHEET|SHT|DWG|DRAWING)\b/i;
 let lblState = null;
+// the letter size of a word: its height, or its width when the text is turned sideways
+const wSize = w => w[5] ? w[3] : w[4];
+/* The words in the box as lines in reading order (straight, bottom to top, or top to bottom), pieces close together
+   joined, so "D" "-3" reads as D-3. Then every sheet number in them, with how big it's written. */
+function sheetNos(words) {
+  const lines = [];
+  words.forEach(w => {
+    const rot = w[5] || 0, sz = wSize(w), c = rot ? w[1] + w[3] / 2 : w[2] + w[4] / 2;
+    const ln = lines.find(l => l.rot === rot && Math.abs(l.c - c) < Math.min(l.sz, sz) * .6);
+    if (ln) ln.w.push(w); else lines.push({ rot, c, sz, w: [w] });
+  });
+  const start = (w, rot) => rot === 1 ? -(w[2] + w[4]) : rot === 2 ? w[2] : w[1], end = (w, rot) => rot === 1 ? -w[2] : rot === 2 ? w[2] + w[4] : w[1] + w[3];
+  const out = [], text = [];
+  lines.forEach(l => {
+    l.w.sort((a, b) => start(a, l.rot) - start(b, l.rot));
+    let t = "";
+    l.w.forEach((w, i) => { t += (i && start(w, l.rot) - end(l.w[i - 1], l.rot) > Math.max(wSize(w), wSize(l.w[i - 1])) * .25 ? " " : "") + w[0]; });
+    text.push(t);
+    const big = Math.max(...l.w.map(wSize)), cx = l.w.reduce((s, w) => s + w[1] + w[3] / 2, 0) / l.w.length, cy = l.w.reduce((s, w) => s + w[2] + w[4] / 2, 0) / l.w.length;
+    (t.match(new RegExp(SHEET_NO.source, "g")) || []).forEach(m => out.push({ name: m, sz: big, cx, cy }));
+  });
+  // a SHEET: label next to it counts for a lot (titles and page numbers can be big too)
+  const lbl = words.filter(w => SHEET_LBL.test(w[0])).map(w => [w[1] + w[3] / 2, w[2] + w[4] / 2]);
+  out.forEach(o => { const d = lbl.length ? Math.min(...lbl.map(([x, y]) => Math.hypot(x - o.cx, y - o.cy))) : 0; o.score = o.sz / (1 + d / (8 * o.sz)); });
+  return { nos: out.sort((a, b) => b.score - a.score), text: text.join(" ").replace(/\s+/g, " ").trim() };
+}
 async function autoName(pg0, r) {
   if (r.w < 8 || r.h < 8) return toast("That box was too small. Drag a box around the sheet number.");
   const dims = async p => { if (!p.dims) { const b = await createImageBitmap(p.blob); p.dims = [b.width, b.height]; b.close && b.close(); } return p.dims; };
   const [W0, H0] = await dims(pg0), fr = { x: r.x / W0, y: r.y / H0, w: r.w / W0, h: r.h / H0 };
   const rows = [], list = pages.filter(p => !p.example);
+  // which way to try the picture reader: a tall box usually holds sideways text. The way that works is tried first next time.
+  let turns = r.h > r.w * 1.3 ? [90, -90, 0] : [0, 90, -90];
   try {
     for (let i = 0; i < list.length; i++) {
       const p = list[i];
@@ -5456,15 +5494,19 @@ async function autoName(pg0, r) {
       const [W, H] = await dims(p);
       // a little extra room, since title blocks shift a bit from sheet to sheet
       const box = { x: Math.max(0, Math.round((fr.x - fr.w * .15) * W)), y: Math.max(0, Math.round((fr.y - fr.h * .15) * H)), w: Math.round(fr.w * 1.3 * W), h: Math.round(fr.h * 1.3 * H) };
-      let words = (p.words || []).filter(w => { const cx = w[1] + w[3] / 2, cy = w[2] + w[4] / 2; return cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h; });
-      let how = "pdf";
-      if (!p.words || !p.words.length) { how = "ocr"; try { words = await ocrWords(p, box, `Reading sheet ${i + 1} of ${list.length} (picture reader)`, true); } catch (e) { words = []; } }
-      words.sort((a, b) => Math.abs(a[2] - b[2]) > Math.min(a[4], b[4]) / 2 ? a[2] - b[2] : a[1] - b[1]);
-      const text = words.map(w => w[0]).join(" ").replace(/\s+/g, " ").trim();
-      // biggest text that looks like a sheet number wins, else everything in the box
-      const nos = words.filter(w => SHEET_NO.test(w[0])).sort((a, b) => b[4] - a[4]);
-      const name = nos.length ? nos[0][0].match(SHEET_NO)[0] : text.slice(0, 40);
-      rows.push({ p, i: pages.indexOf(p), name, use: !!name, why: !name ? "Nothing found there" : !nos.length ? "Doesn't look like a sheet number" : how === "ocr" ? "Read from the picture, check it" : "" });
+      const words = (p.words || []).filter(w => { const cx = w[1] + w[3] / 2, cy = w[2] + w[4] / 2; return cx >= box.x && cx <= box.x + box.w && cy >= box.y && cy <= box.y + box.h; });
+      let how = "pdf", got = sheetNos(words);
+      // no sheet number in the PDF's text there (none at all, or the title block is drawn as lines): read the picture
+      if (!got.nos.length) {
+        for (const t of turns) {
+          let ow = []; try { ow = await ocrWords(p, box, `Reading sheet ${i + 1} of ${list.length} (picture reader)`, true, false, t); } catch (e) { break; }
+          const g = sheetNos(ow);
+          if (g.nos.length) { got = g; how = "ocr"; turns = [t, ...turns.filter(x => x !== t)]; break; }
+          if (!got.text) got = g;
+        }
+      }
+      const name = got.nos.length ? got.nos[0].name : got.text.slice(0, 40);
+      rows.push({ p, i: pages.indexOf(p), name, use: !!name, why: !name ? "Nothing found there" : !got.nos.length ? "Doesn't look like a sheet number" : how === "ocr" ? "Read from the picture, check it" : "" });
     }
   } finally { busy(null, null); }
   const seen = {}; rows.forEach(x => { if (x.name) seen[x.name] = (seen[x.name] || 0) + 1; });
@@ -7480,11 +7522,11 @@ function fwFind(pg, q, whole) {
   if (!words.length || !q) return hits;
   // group the words into lines (straight ones by row, turned ones by column) so a phrase across words is found too
   const rows = new Map();
-  words.forEach(w => { const rot = !!w[5], key = rot ? "c" + Math.round((w[1] + w[3] / 2) / Math.max(4, w[3] * .6)) : "r" + Math.round((w[2] + w[4] / 2) / Math.max(4, w[4] * .6)); (rows.get(key) || rows.set(key, []).get(key)).push(w); });
+  words.forEach(w => { const rot = w[5] || 0, key = rot ? "c" + rot + "_" + Math.round((w[1] + w[3] / 2) / Math.max(4, w[3] * .6)) : "r" + Math.round((w[2] + w[4] / 2) / Math.max(4, w[4] * .6)); (rows.get(key) || rows.set(key, []).get(key)).push(w); });
   const ocr = words.some(w => w[6]), loose = t => ocr ? t.replace(/0/g, "o").replace(/[1l|]/g, "i").replace(/5/g, "s") : t, nq = loose(fwNorm(q));
   const re = new RegExp((whole ? "(^|[^a-z0-9])" : "()") + nq.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (whole ? "(?![a-z0-9])" : ""), "g");
   rows.forEach(list => {
-    const rot = !!list[0][5]; list.sort((a, b) => rot ? b[2] - a[2] : a[1] - b[1]);
+    const rot = list[0][5] || 0; list.sort((a, b) => rot === 1 ? b[2] - a[2] : rot === 2 ? a[2] - b[2] : a[1] - b[1]);
     let line = "", orig = "", map = [];
     list.forEach((w, i) => { const o = String(w[0] || "").replace(/\s+/g, " ").trim(), t = loose(o.toLowerCase()); if (i) { line += " "; orig += " "; map.push(null); } for (let c = 0; c < t.length; c++) map.push([w, c, t.length]); line += t; orig += o; });
     let m; re.lastIndex = 0;
@@ -7494,7 +7536,7 @@ function fwFind(pg, q, whole) {
       for (let c = a; c <= b; c++) { const e = map[c]; if (!e) continue; const [w, ci, n] = e;
         // a part of a longer piece of text: take its share of the width (or height, when turned)
         const f0 = ci / n, f1 = (ci + 1) / n;
-        const r = w[5] ? [w[1], w[2] + w[4] * (1 - f1), w[3], w[4] * (f1 - f0)] : [w[1] + w[3] * f0, w[2], w[3] * (f1 - f0), w[4]];
+        const r = w[5] === 2 ? [w[1], w[2] + w[4] * f0, w[3], w[4] * (f1 - f0)] : w[5] ? [w[1], w[2] + w[4] * (1 - f1), w[3], w[4] * (f1 - f0)] : [w[1] + w[3] * f0, w[2], w[3] * (f1 - f0), w[4]];
         x0 = Math.min(x0, r[0]); y0 = Math.min(y0, r[1]); x1 = Math.max(x1, r[0] + r[2]); y1 = Math.max(y1, r[1] + r[3]); }
       if (x1 > x0) hits.push({ pg, r: [x0, y0, x1 - x0, y1 - y0], txt: (a > 30 ? "…" : "") + orig.slice(Math.max(0, a - 30), b + 31) + (b + 31 < orig.length ? "…" : "") });
       re.lastIndex = m.index + Math.max(1, m[0].length);
