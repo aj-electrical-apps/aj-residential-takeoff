@@ -276,7 +276,8 @@ html.look-new body { font-family: var(--font-ui); }
 .no-cost :is(#bidBtn, #tsBidTab, #tsPropTab), .no-tracker #trkBtn, .no-lists :is(#tsAsmTab, #tsRateTab), .no-hours #tsHoursTab,
 .no-counts :is(#tsCountTab, #tsSupTab, #tsUgTab), .no-order #tsOrderTab, .no-scale :is(#measureBtn, #scaleBtn) { display: none !important; }
 .role-field.can-scale:not(.no-scale) #scaleBtn { display: inline-flex !important; }
-.role-field .mk-office { opacity: .3; }
+/* the field sees the office symbols and runs in full color so they're easy to find (Jonathan 2026-11-21); office notes stay faded */
+.role-field .mk-office > :not(.mk-dev):not(.mk-tag):not(.mk-run):not(.mk-dot) { opacity: .3; }
 .role-field.office-off .mk-office { display: none; }
 .role-field .mk-ghost { opacity: .95; }
 .adm-pos .adm-perms { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 6px; }
@@ -484,12 +485,12 @@ html.look-new body { font-family: var(--font-ui); }
 .mk-pin.done .mk-pin-dot { fill: #2f9e44; }
 .mk-pin.done .mk-pin-lbl { fill: #1b6e2f; }
 /* installed (Jonathan 2026-11-21): the crew lead turns lights, receptacles and runs green as they go in */
-.mk-inst-ring { fill: rgba(47, 158, 68, .22); stroke: #2f9e44; }
+.mk-inst-glow { fill: rgba(64, 192, 87, .45); stroke: none; pointer-events: none; }
+.mk-inst-ring { fill: none; stroke: #2f9e44; pointer-events: none; }
 .mk-inst-chk { fill: #1b6e2f; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-linejoin: round; pointer-events: none; }
 .mk-inst-todo { fill: none; stroke: #e03131; stroke-dasharray: 3 2; opacity: .8; }
-.mk-inst-run { fill: none; stroke: #2f9e44; stroke-linecap: round; stroke-linejoin: round; opacity: .55; pointer-events: none; }
+.mk-inst-run { fill: none; stroke: #40c057; stroke-linecap: round; stroke-linejoin: round; opacity: .5; pointer-events: none; }
 .mk-inst-run.todo { stroke: #e03131; opacity: .3; }
-.role-field.installing .mk-office { opacity: .9; }
 .btn.tool.inst-tool[aria-pressed="true"] { background: #d3f9d8; border-color: #2f9e44; color: #0b3d17; }
 .no-install #instBtn { display: none !important; }
 .inst-find b { margin-left: 4px; background: #e03131; color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; }
@@ -10027,22 +10028,24 @@ $("instFindBtn").onclick = () => { drawInstFind(); $("instModal").hidden = false
 $("instOpen").onchange = drawInstFind;
 $("instClose").onclick = () => { $("instModal").hidden = true; };
 function drawInst(g0, p, ns, ptsAttr) {
-  const g = svgEl("g", { class: "mk-inst" }), on = tool === "install";
+  // a green highlight: a glow under the symbol or run (so it keeps its own color) and a ring and check on top
+  const g = svgEl("g", { class: "mk-inst" }), top = svgEl("g", { class: "mk-inst-top" }), on = tool === "install";
   instRuns(p).forEach(r => {
     const d = instIs(instKeyR(r)); if (!d && !on) return;
-    g.appendChild(svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-inst-run" + (d ? "" : " todo"), "stroke-width": 7 / k }));
+    g.appendChild(svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-inst-run" + (d ? "" : " todo"), "stroke-width": (d ? 12 : 7) / k }));
   });
   instDevs(p).forEach(v => {
     const d = devInfo(v.t); if (hideSecs.has(cntSecKey(d)) && v.t !== findId) return;
     const key = instKeyD(p, v), done = instIs(key);
     if (done) {
-      const c = svgEl("circle", { cx: v.x, cy: v.y, r: 13 / k, class: "mk-inst-ring", "stroke-width": 2 / k });
+      g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k, class: "mk-inst-glow" }));
+      const c = svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k, class: "mk-inst-ring", "stroke-width": 2.5 / k });
       const rec = instRec(key); c.appendChild(svgEl("title", {}, `${nameOf(d)} · installed${rec.by ? " by " + rec.by : ""} ${whenSaved(rec.at)}`));
-      g.appendChild(c);
-      g.appendChild(svgEl("text", { x: v.x + 8 / k, y: v.y + 14 / k, class: "mk-inst-chk", "font-size": 13 / k, "stroke-width": 3 / k }, "✓"));
-    } else if (on) g.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 13 / k, class: "mk-inst-todo", "stroke-width": 1.5 / k }));
+      top.appendChild(c);
+      top.appendChild(svgEl("text", { x: v.x + 10 / k, y: v.y + 17 / k, class: "mk-inst-chk", "font-size": 14 / k, "stroke-width": 3 / k }, "✓"));
+    } else if (on) top.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 16 / k, class: "mk-inst-todo", "stroke-width": 1.5 / k }));
   });
-  g0.insertBefore(g, g0.firstChild);
+  g0.insertBefore(g, g0.firstChild); g0.appendChild(top);
   clearTimeout(drawInst.t); drawInst.t = setTimeout(instBadge, 300);
 }
 function drawPins(g0, p) {
