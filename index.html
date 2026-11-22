@@ -899,7 +899,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v8<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v9<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="msgBtn" type="button" hidden title="Parts of the drawings people sent you, and your answers">Messages</button>
@@ -2977,6 +2977,7 @@ const RES_ITEMS = [
   {"id": "can6", "name": "6\" Can Light", "cat": "Interior lights", "mins": 25.3, "labor": 42.0, "material": 39.47, "price": 81.47, "notes": "25' 14/2, can light $15, $15 misc", "sym": symbolRecessed()},
   {"id": "flush", "name": "Flush Mount Light (fixture not incl.)", "cat": "Interior lights", "mins": 30.12, "labor": 50.0, "material": 23.6, "price": 73.6, "notes": "25' 14/2, round box, $15 misc", "sym": symbolSurfaceMount()},
   {"id": "vanity", "name": "Vanity Light (fixture not incl.)", "cat": "Interior lights", "mins": 29.46, "labor": 48.9, "material": 23.6, "price": 72.5, "notes": "25' 14/2, round box, $15 misc", "sym": symbolVanity(2)},
+  {"id": "wsconce", "name": "Wall Sconce (fixture not incl.)", "cat": "Interior lights", "mins": 29.46, "labor": 48.9, "material": 23.6, "price": 72.5, "notes": "25' 14/2, round box, $15 misc", "sym": symbolVanity(1), "added": 9},
   {"id": "pend", "name": "Pendant Light (fixture not incl.)", "cat": "Interior lights", "mins": 29.46, "labor": 48.9, "material": 23.6, "price": 72.5, "notes": "25' 14/2, round box, $15 misc", "sym": symbolPendant()},
   {"id": "chand", "name": "Chandelier (fixture not incl.)", "cat": "Interior lights", "mins": 50.0, "labor": 83.0, "material": 42.5, "price": 125.5, "notes": "50' 14/2, ceiling fan box $7, $15 misc", "sym": symbolChandelier()},
   {"id": "puck", "name": "Puck Light", "cat": "Interior lights", "mins": 27.43, "labor": 45.53, "material": 44.47, "price": 90.0, "notes": "25' 14/2, round box, puck light $20, $15 misc", "sym": symbolPuck()},
@@ -3017,7 +3018,15 @@ const resSlug = c => "res-" + c.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 /* every residential symbol in its own color, so each kind is easy to pick out on the plan (Jonathan 2026-11-21:
    "icons are still black they should all be different colors"). Hues spread by the golden angle, dark enough to read on white. */
 const resHex = (h, sat, l) => { const a = sat * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12, c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(c * 255).toString(16).padStart(2, "0"); }; return "#" + f(0) + f(8) + f(4); };
-{ let n = 0; RES_ITEMS.forEach(it => { if (it.sym) it.ink = resHex((n * 137.508 + 210) % 360, .85, n++ % 2 ? .36 : .42); }); }
+// items added later ("added": version) take the next colors, so the colors people already know never change
+{ let n = 0; const hues = [];
+  RES_ITEMS.forEach(it => { if (it.sym && !it.added) { const h = (n * 137.508 + 210) % 360; hues.push(h); it.ink = resHex(h, .85, n++ % 2 ? .36 : .42); } });
+  // a newer symbol takes the hue farthest from every color already in use
+  RES_ITEMS.filter(it => it.sym && it.added).sort((a, b) => a.added - b.added).forEach(it => {
+    let best = 0, gap = -1;
+    for (let h = 0; h < 360; h++) { const g = Math.min(...hues.map(u => Math.min(Math.abs(h - u), 360 - Math.abs(h - u)))); if (g > gap) { gap = g; best = h; } }
+    hues.push(best); it.ink = resHex(best, .85, .38);
+  }); }
 RES_ITEMS.forEach((it, i) => {
   if (!it.sym) return;
   DEVICES["R-" + it.id] = { id: "R-" + it.id, kind: it.name, model: it.notes, maker: "", group: resSlug(it.cat), shape: "circle", color: it.ink, sym: it.sym, res: it };
