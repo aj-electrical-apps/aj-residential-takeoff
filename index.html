@@ -927,7 +927,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v13<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v14<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="msgBtn" type="button" hidden title="Parts of the drawings people sent you, and your answers">Messages</button>
@@ -3071,13 +3071,32 @@ RES_ITEMS.forEach((it, i) => {
   if (!it.sym) return;
   DEVICES["R-" + it.id] = { id: "R-" + it.id, kind: it.name, model: it.notes, maker: "", group: resSlug(it.cat), shape: "circle", color: it.ink, sym: it.sym, res: it };
 });
+/* every symbol on the plan is drawn the same size as the Vanity Light (Jonathan 2026-11-22: "make all the icons the same
+   size in scale as the vanity light"). Each drawing is measured once (without its tap area) and scaled so it fits the same
+   size box as the vanity light; line widths are scaled back so the outlines stay as thin as before. The toolbox and
+   price sheet icons keep filling their little boxes. */
+{ const NS = "http://www.w3.org/2000/svg", W = { "ink": .06, "ink-bold": .1, "ink-thin": .04 };
+  const sv = document.createElementNS(NS, "svg"); sv.setAttribute("viewBox", "-3 -3 6 6");
+  sv.setAttribute("style", "position:absolute;left:-9999px;top:0;width:600px;height:600px;visibility:hidden");
+  const g = document.createElementNS(NS, "g"); g.setAttribute("class", "rs-sym"); sv.appendChild(g);
+  (document.body || document.documentElement).appendChild(sv);
+  const size = it => { g.innerHTML = it.sym.replace(/<rect class="hit"[^>]*\/>/g, ""); try { const b = g.getBBox(); return b.width > 0 && b.height > 0 ? Math.max(b.width, b.height) : 0; } catch (e) { return 0; } };
+  const ref = size(RES_ITEMS.find(it => it.id === "vanity"));
+  RES_ITEMS.forEach(it => {
+    if (!it.sym) return;
+    const z = size(it); it.fit = ref && z ? ref / z : 1;
+    const f = +it.fit.toFixed(4);
+    it.symFit = Math.abs(f - 1) < .01 ? it.sym : '<g transform="scale(' + f + ')">' +
+      it.sym.replace(/class="(ink|ink-bold|ink-thin)"/g, (m, c) => m + ' style="stroke-width:' + +(W[c] / f).toFixed(4) + '"') + '</g>';
+  });
+  sv.remove(); }
 // the same symbol as a picture, for the PDF and print canvases
 const RES_IMG = {};
 const RES_SVG_CSS = c => `.ink{stroke:${c};stroke-width:.06;fill:none}.ink-bold{stroke:${c};stroke-width:.1;fill:none}.ink-thin{stroke:${c};stroke-width:.04;fill:none}.ink-fill{fill:${c}}.sym-text{fill:${c};font-family:monospace}.hit{fill:#fff;fill-opacity:.85}`;
 RES_ITEMS.forEach(it => {
   if (!it.sym) return;
   const im = new Image();
-  im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.3 -1.3 2.6 2.6" width="260" height="260"><style>${RES_SVG_CSS(it.ink)}</style>${it.sym.replace(/var\(--font-mono\)/g, "monospace")}</svg>`);
+  im.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1.3 -1.3 2.6 2.6" width="260" height="260"><style>${RES_SVG_CSS(it.ink)}</style>${(it.symFit || it.sym).replace(/var\(--font-mono\)/g, "monospace")}</svg>`);
   RES_IMG["R-" + it.id] = im;
 });
 const RES_MARK = 1.8; // residential symbols draw a little bigger than the commercial dots so the lettering reads
@@ -3094,7 +3113,8 @@ function resSymEl(d, cx, cy, r, cls) {
   g.setAttribute("class", "rs-sym " + (cls || ""));
   const ink = d.res && d.res.ink || (DEVICES[d.base] && DEVICES[d.base].res || {}).ink; if (ink) g.style.setProperty("--ink", ink);
   g.setAttribute("transform", `translate(${cx} ${cy}) scale(${r * (cls === "sym" ? 1.05 : RES_MARK)})`);
-  g.innerHTML = d.sym;
+  const it = d.res || (DEVICES[d.base] || {}).res;
+  g.innerHTML = cls !== "sym" && it && it.symFit || d.sym;
   return g;
 }
 function resPriceOf() { if (!job) return { over: {}, qty: {}, extra: [] }; const p = job.resPrice || (job.resPrice = {}); p.over = p.over || {}; p.qty = p.qty || {}; p.extra = p.extra || []; return p; }
