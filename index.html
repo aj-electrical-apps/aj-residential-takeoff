@@ -277,7 +277,7 @@ html.look-new body { font-family: var(--font-ui); }
 .no-counts :is(#tsCountTab, #tsSupTab, #tsUgTab), .no-order #tsOrderTab, .no-scale :is(#measureBtn, #scaleBtn) { display: none !important; }
 .role-field.can-scale:not(.no-scale) #scaleBtn { display: inline-flex !important; }
 /* the field sees the office symbols and runs in full color so they're easy to find (Jonathan 2026-11-21); office notes stay faded */
-.role-field .mk-office > :not(.mk-dev):not(.mk-tag):not(.mk-run):not(.mk-dot) { opacity: .3; }
+.role-field .mk-office > :not(.mk-dev):not(.mk-tag):not(.mk-run):not(.mk-dot):not(.mk-circ) { opacity: .3; }
 .role-field.office-off .mk-office { display: none; }
 .role-field .mk-ghost { opacity: .95; }
 .adm-pos .adm-perms { display: grid; grid-template-columns: repeat(auto-fit, minmax(185px, 1fr)); gap: 6px; }
@@ -348,6 +348,12 @@ html.look-new body { font-family: var(--font-ui); }
 .run { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
 .run select { grid-column: 1 / -1; min-width: 0; height: 28px; font-size: 13px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); padding: 0 6px; margin-top: -2px; }
 .wire-swatch { width: 22px; height: 0; border-top: 4px solid; border-radius: 2px; flex: none; }
+.wire-sel { width: 100%; height: 34px; margin: 2px 0 6px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; font-weight: 600; }
+.wire-swatch.circ { height: 4px; border-top: 0; border-radius: 3px; box-shadow: 0 0 0 1.5px #212529; }
+.wire-swatch.circ.mc { background: #212529 !important; }
+.wire-swatch.circ.mc::before { content: ""; display: block; height: 2px; margin-top: 1px; background: var(--stripe); }
+.cnt-num { display: inline-block; min-width: 20px; margin-right: 4px; font-weight: 700; color: var(--muted); }
+.mk-circ { font-family: var(--font-mono); font-weight: 700; paint-order: stroke; stroke: #fff; stroke-linejoin: round; fill: #212529; text-anchor: middle; dominant-baseline: central; }
 .ask-em { display: flex; gap: 8px; align-items: center; }
 #ampForm:not(.m-amps) .ask-amps, #ampForm:not(.m-fan) .ask-fan, #ampForm:not(.m-drop) .ask-drop, #ampForm:not(.m-cat) .ask-cat,
 #ampForm:not(.m-box) .ask-box, #ampForm:not(.m-wire) .ask-wire, #ampForm:not(.m-serves) .ask-serves, #ampForm:not(.m-brk) .ask-brk, #ampForm:not(.m-misc) .ask-misc, #ampForm:not(.m-em) .ask-em, #ampForm:not(.m-mount) .ask-mount, #ampForm:not(.m-light) .ask-light, #ampForm:not(.m-light) .ask-db, #ampForm:not(.m-db) .ask-light { display: none; }
@@ -462,7 +468,7 @@ html.look-new body { font-family: var(--font-ui); }
 .cnt-div::after { content: ""; flex: 1; height: 1px; background: var(--line); order: 1; }
 .cnt-div .sn { order: 2; font-weight: 600; }
 /* Field login (Jonathan 2026-10-30): the PM and super look, measure and print; the estimate is locked */
-.role-field :is(#uploadBtn, #bgLoad, #newJobBtn, #coBtn, #clearBtn, #replBtn, #lblBtn, #symBtn, #pnlBtn, #schedBtn, #impBtn, #addCountBtn, #addWireBtn, #addDitchBtn,
+.role-field :is(#uploadBtn, #bgLoad, #newJobBtn, #coBtn, #clearBtn, #replBtn, #lblBtn, #symBtn, #pnlBtn, #schedBtn, #impBtn, #addCountBtn, #addWireBtn, #wireSel, #addDitchBtn,
   #scaleBtn, #hlYBtn, #hlRBtn, #roomBtn, #fileBtn, #histUndo, #histRedo, #tsDbo, #tsRomex, #tsAllBox,
   #jobForm, #teamWhoBox, #jobsOpenFile, #labelForm, .cnt-edit, .psec[data-fold="toolbox"], .tool-sub, .feed-edit) { display: none !important; }
 .review-bar { position: fixed; left: 50%; top: 10px; transform: translateX(-50%); z-index: 60; max-width: min(760px, calc(100vw - 24px)); display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
@@ -899,7 +905,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v8<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v10<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="msgBtn" type="button" hidden title="Parts of the drawings people sent you, and your answers">Messages</button>
@@ -1120,10 +1126,11 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
       <div class="psec" data-fold="wire">
       <div class="sec-head">
         <h2>Conduit &amp; wire</h2>
-        <span><button class="btn sm" id="addDitchBtn" type="button" title="Just dig and backfill a ditch, by the foot, with nothing in it">+ Ditch only</button> <button class="btn sm primary" id="addWireBtn" type="button">+ Add run type</button></span>
+        <span><button class="btn sm" id="addDitchBtn" type="button" title="Just dig and backfill a ditch, by the foot, with nothing in it">+ Ditch only</button> <button class="btn sm primary" id="addWireBtn" type="button" title="Conduit or any other run: pick the conduit, the wire in it, and the depth if it's underground">+ Add run</button></span>
       </div>
+      <select id="wireSel" class="wire-sel" aria-label="New circuit: pick the wire" title="Each pick starts a new circuit. Click a circuit below to add more to it."></select>
       <ul class="cnt-list" id="wireList"></ul>
-      <p class="empty" id="wiresEmpty">Make a run type like 3/4" EMT with 5 #12 STR. Then click it to draw runs of it, and click it again any time to add more.</p>
+      <p class="empty" id="wiresEmpty">Pick a wire above to start circuit 1. Each pick starts a new circuit; click a circuit here to add more to it. Use <b>+ Add run</b> for conduit. Then click it to draw runs of it, and click it again any time to add more.</p>
       </div>
       <div class="psec" data-fold="runs">
       <h2>Sheet scale</h2>
@@ -2211,7 +2218,7 @@ function renderSheet() {
   const img = $("sheetImg");
   const has = !!p;
   ["prevBtn", "nextNavBtn", "fullBtn", "nextBtn", "nameInput", "zoomIn", "zoomOut", "zoomFit", "panBtn"].forEach(id => $(id).disabled = !has);
-  ["scaleBtn", "measureBtn", "runBtn", "eraseBtn", "addCountBtn", "addWireBtn", "addDitchBtn"].forEach(id => $(id).disabled = !has || !!cmp);
+  ["scaleBtn", "measureBtn", "runBtn", "eraseBtn", "addCountBtn", "addWireBtn", "wireSel", "addDitchBtn"].forEach(id => $(id).disabled = !has || !!cmp);
   $("cmpBtn").disabled = pages.length < 2;
   $("exampleTag").hidden = !(p && p.example) || !!cmp;
   document.querySelectorAll(".corners button").forEach(b => { b.disabled = !has; b.setAttribute("aria-pressed", has && p.zoom === b.dataset.zoom ? "true" : "false"); });
@@ -2977,6 +2984,7 @@ const RES_ITEMS = [
   {"id": "can6", "name": "6\" Can Light", "cat": "Interior lights", "mins": 25.3, "labor": 42.0, "material": 39.47, "price": 81.47, "notes": "25' 14/2, can light $15, $15 misc", "sym": symbolRecessed()},
   {"id": "flush", "name": "Flush Mount Light (fixture not incl.)", "cat": "Interior lights", "mins": 30.12, "labor": 50.0, "material": 23.6, "price": 73.6, "notes": "25' 14/2, round box, $15 misc", "sym": symbolSurfaceMount()},
   {"id": "vanity", "name": "Vanity Light (fixture not incl.)", "cat": "Interior lights", "mins": 29.46, "labor": 48.9, "material": 23.6, "price": 72.5, "notes": "25' 14/2, round box, $15 misc", "sym": symbolVanity(2)},
+  {"id": "wsconce", "name": "Wall Sconce (fixture not incl.)", "cat": "Interior lights", "mins": 29.46, "labor": 48.9, "material": 23.6, "price": 72.5, "notes": "25' 14/2, round box, $15 misc", "sym": symbolVanity(1), "added": 9},
   {"id": "pend", "name": "Pendant Light (fixture not incl.)", "cat": "Interior lights", "mins": 29.46, "labor": 48.9, "material": 23.6, "price": 72.5, "notes": "25' 14/2, round box, $15 misc", "sym": symbolPendant()},
   {"id": "chand", "name": "Chandelier (fixture not incl.)", "cat": "Interior lights", "mins": 50.0, "labor": 83.0, "material": 42.5, "price": 125.5, "notes": "50' 14/2, ceiling fan box $7, $15 misc", "sym": symbolChandelier()},
   {"id": "puck", "name": "Puck Light", "cat": "Interior lights", "mins": 27.43, "labor": 45.53, "material": 44.47, "price": 90.0, "notes": "25' 14/2, round box, puck light $20, $15 misc", "sym": symbolPuck()},
@@ -3017,7 +3025,15 @@ const resSlug = c => "res-" + c.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 /* every residential symbol in its own color, so each kind is easy to pick out on the plan (Jonathan 2026-11-21:
    "icons are still black they should all be different colors"). Hues spread by the golden angle, dark enough to read on white. */
 const resHex = (h, sat, l) => { const a = sat * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12, c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return Math.round(c * 255).toString(16).padStart(2, "0"); }; return "#" + f(0) + f(8) + f(4); };
-{ let n = 0; RES_ITEMS.forEach(it => { if (it.sym) it.ink = resHex((n * 137.508 + 210) % 360, .85, n++ % 2 ? .36 : .42); }); }
+// items added later ("added": version) take the next colors, so the colors people already know never change
+{ let n = 0; const hues = [];
+  RES_ITEMS.forEach(it => { if (it.sym && !it.added) { const h = (n * 137.508 + 210) % 360; hues.push(h); it.ink = resHex(h, .85, n++ % 2 ? .36 : .42); } });
+  // a newer symbol takes the hue farthest from every color already in use
+  RES_ITEMS.filter(it => it.sym && it.added).sort((a, b) => a.added - b.added).forEach(it => {
+    let best = 0, gap = -1;
+    for (let h = 0; h < 360; h++) { const g = Math.min(...hues.map(u => Math.min(Math.abs(h - u), 360 - Math.abs(h - u)))); if (g > gap) { gap = g; best = h; } }
+    hues.push(best); it.ink = resHex(best, .85, .38);
+  }); }
 RES_ITEMS.forEach((it, i) => {
   if (!it.sym) return;
   DEVICES["R-" + it.id] = { id: "R-" + it.id, kind: it.name, model: it.notes, maker: "", group: resSlug(it.cat), shape: "circle", color: it.ink, sym: it.sym, res: it };
@@ -3218,7 +3234,7 @@ function renderSchedBox() {
 function buildToolbox() {
   const box = $("toolbox"); box.replaceChildren();
   buildResToolbox(box);
-  const com = document.createElement("details"); com.className = "rs-com"; com.innerHTML = "<summary>Commercial items</summary>"; box.appendChild(com);
+  const com = document.createElement("details"); com.className = "rs-com"; com.innerHTML = "<summary>Commercial items</summary>"; com.hidden = true; box.appendChild(com); // residential only (Jonathan 2026-11-22): kept in the page so older jobs still draw
   FAMILIES.forEach(([fk, fname]) => {
     const rk = c => c.key === "wall" ? CATS.findIndex(x => x.key === "open") + 0.5 : CATS.indexOf(c); // wall-mount fixtures sit after the open-ceiling lights
     const cats = CATS.filter(c => c.fam === fk).sort((a, b) => rk(a) - rk(b));
@@ -4396,8 +4412,9 @@ function takeoffRows() {
     if (isUG(w)) { /* conduit added above */ } else if (isPull(w)) {
       const runs = w.runs || 1;
       add(`${w.id}:c`, `${w.size} ${w.conduit}`, wireLabel(w), lf * runs, `${w.size} ${w.conduit} conduit`);
-      add(`${w.id}:p`, "Pull string", `${runs > 1 ? `${runs} runs × ` : ""}${fmtLF(lf)} · ${wireLabel(w)}`, lf * runs, "Pull string");
+      if (!w.bare) add(`${w.id}:p`, "Pull string", `${runs > 1 ? `${runs} runs × ` : ""}${fmtLF(lf)} · ${wireLabel(w)}`, lf * runs, "Pull string");
     } else if (w.conduit === "Romex (NM-B)") add(`${w.id}:c`, `Romex ${w.count}x ${gaugeTxt(w.gauge)}${w.ground ? " + GND" : ""}`, wireLabel(w), lf * sets, `Romex (NM-B), ${w.count}/${gaugeTxt(w.gauge)}${w.ground ? ` with ${gaugeTxt(w.ground)} ground` : ""}`);
+    else if (/^(SER|MHF) cable$/.test(w.conduit)) add(`${w.id}:c`, w.cable ? `${w.cable} AL ${w.conduit.split(" ")[0]}` : `${w.conduit} ${w.count}x ${gaugeTxt(w.gauge)}`, wireLabel(w), lf * sets, w.cable ? `${w.conduit.split(" ")[0]} cable, ${w.cable} aluminum` : `${w.conduit}, ${w.count}/${gaugeTxt(w.gauge)}${w.ground ? ` with ${gaugeTxt(w.ground)} ground` : ""}`);
     else if (w.conduit === "MC cable") add(`${w.id}:c`, `MC cable ${w.count}x ${gaugeTxt(w.gauge)}${w.ground ? " + GND" : ""}`, wireLabel(w), lf * sets, `MC cable, ${w.count}/${gaugeTxt(w.gauge)}${w.ground ? ` with ${gaugeTxt(w.ground)} ground` : ""}`);
     else {
       if (w.conduit !== "No conduit") add(`${w.id}:c`, `${w.size} ${w.conduit}`, wireLabel(w), lf * sets, `${w.size} ${w.conduit} conduit`);
@@ -6348,6 +6365,21 @@ function label(g, x, y, text, cls) {
   const fs = 13 / k;
   g.appendChild(svgEl("text", { x, y: y - 8 / k, class: "mk-label " + (cls || ""), "font-size": fs, "stroke-width": 4 / k, "text-anchor": "middle" }, text));
 }
+/* A circuit drawn from the wire dropdown: Romex is its color with a dark edge (so white shows), MC is black with the
+   matching color down the middle. The circuit number sits on the line every 5' (Jonathan 2026-11-22), fewer when zoomed out so they don't pile up. */
+function drawCirc(g, p, r, w, ns, ptsAttr) {
+  const op = inScope(r) ? 1 : .3, mc = w.conduit === "MC cable", pts = ptsAttr(r.pts);
+  g.appendChild(svgEl("polyline", { points: pts, class: "mk-run", style: `stroke:#212529;stroke-width:${mc ? 6.5 : 4.5}px;opacity:${op}`, ...ns }));
+  g.appendChild(svgEl("polyline", { points: pts, class: "mk-run", style: `stroke:${w.color};stroke-width:${mc ? 2 : 2.75}px;opacity:${op}`, ...ns }));
+  const seg = [], fs = 11 / k; let tot = 0;
+  for (let i = 1; i < r.pts.length; i++) { const [a, b] = [r.pts[i - 1], r.pts[i]], l = Math.hypot(b[0] - a[0], b[1] - a[1]); seg.push([a, b, l]); tot += l; }
+  if (!tot) return;
+  let step = p.ftPerPx ? 5 / p.ftPerPx : tot; // 5' along the line, in sheet units
+  while (step * k < 34 && step < tot) step *= 2; // keep labels at least ~34px apart on screen
+  const at = d => { for (const [a, b, l] of seg) { if (d <= l) return [a[0] + (b[0] - a[0]) * d / l, a[1] + (b[1] - a[1]) * d / l]; d -= l; } return r.pts[r.pts.length - 1]; };
+  const marks = tot <= step ? [tot / 2] : Array.from({ length: Math.floor(tot / step) }, (_, i) => (i + .5) * step);
+  marks.forEach(d => { const [x, y] = at(d); g.appendChild(svgEl("text", { x, y, class: "mk-circ", "font-size": fs, "stroke-width": 3.5 / k, opacity: op }, String(w.circ))); });
+}
 function drawOverlay() {
   const svg = $("overlay"), p = pages[current];
   svg.replaceChildren();
@@ -6379,9 +6411,8 @@ function drawOverlay() {
     if (r === contRun) continue; // drawn below as the draft that's growing
     const w = wireOf(r.typeId), col = w ? { style: `stroke:${w.color}${inScope(r) ? "" : ";opacity:.3"}` } : inScope(r) ? {} : { style: "opacity:.3" };
     if (sel.has(r)) g.appendChild(svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-glow-run", ...ns }));
-    const line = svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-run", ...col, ...ns });
-    g.appendChild(line);
-    dots(g, [r.pts[0], r.pts[r.pts.length - 1]]);
+    if (isCirc(w)) drawCirc(g, p, r, w, ns, ptsAttr);
+    else { g.appendChild(svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-run", ...col, ...ns })); dots(g, [r.pts[0], r.pts[r.pts.length - 1]]); }
     // a highlighted run shows a handle on every point: drag one to stretch the run, drag the line to slide it
     if (sel.has(r) && !tool) r.pts.forEach(q => g.appendChild(svgEl("circle", { cx: q[0], cy: q[1], r: 6 / k, class: "mk-handle", ...ns })));
   }
@@ -6412,7 +6443,7 @@ function drawOverlay() {
   }
   const live = draft.length && hover ? [...draft, hover] : draft;
   if (tool === "run" && live.length) {
-    g.appendChild(svgEl("polyline", { points: ptsAttr(live), class: "mk-draft", ...(wireOf(runType) ? { style: `stroke:${wireOf(runType).color}` } : {}), ...ns }));
+    g.appendChild(svgEl("polyline", { points: ptsAttr(live), class: "mk-draft", ...(wireOf(runType) ? { style: `stroke:${runInk(wireOf(runType))}${isCirc(wireOf(runType)) ? ";stroke-width:2.5px" : ""}` } : {}), ...ns }));
     dots(g, draft);
     const end = live[live.length - 1];
     if (live.length > 1) label(g, end[0], end[1], fmtLF(polyLen(live) * p.ftPerPx));
@@ -7084,9 +7115,30 @@ let runType = null, contRun = null; // the type being drawn, and the run being m
 let exampleWires = [];
 const wiresList = () => job ? (job.wireTypes || (job.wireTypes = [])) : exampleWires;
 const wireOf = id => id ? wiresList().find(w => w.id === id) : null;
-const CONDUITS = ["EMT", "PVC Sch 40", "PVC Sch 80", "Rigid (RMC)", "IMC", "Flex (FMC)", "Sealtite (LFMC)", "MC cable", "Romex (NM-B)", "No conduit"];
-const NOPIPE = ["MC cable", "Romex (NM-B)", "No conduit"]; // cable types: no conduit size
+const CONDUITS = ["EMT", "PVC Sch 40", "PVC Sch 80", "Rigid (RMC)", "IMC", "Flex (FMC)", "Sealtite (LFMC)", "MC cable", "Romex (NM-B)", "SER cable", "MHF cable", "No conduit"];
+const CABLES = ["MC cable", "Romex (NM-B)", "SER cable", "MHF cable"];
+const NOPIPE = [...CABLES, "No conduit"]; // cable types: no conduit size
 const CSIZES = ['1/2"', '3/4"', '1"', '1-1/4"', '1-1/2"', '2"', '2-1/2"', '3"', '3-1/2"', '4"'];
+/* Wire dropdown (Jonathan 2026-11-22, v10): Romex and MC 14/2 to 6/3, 100 and 200 amp SER and MHF (aluminum).
+   Each pick starts a new circuit. Romex colors are Jonathan's: 14/2 white, 14/3 blue, 12/2 yellow, 12/3 purple, 10/2 orange, 10/3 pink
+   (8 and 6 picked to stay apart). MC draws black with the matching Romex color down the middle.
+   Conduit and everything else goes through + Add run (depth and wire options, like the commercial app), in 1", 1-1/2", 2" and 3". */
+const WL_SIZES = [["14", 2], ["14", 3], ["12", 2], ["12", 3], ["10", 2], ["10", 3], ["8", 2], ["8", 3], ["6", 2], ["6", 3]];
+const WL_COLORS = { "14/2": "#ffffff", "14/3": "#1c7ed6", "12/2": "#fcc419", "12/3": "#7b2cbf", "10/2": "#fd7e14", "10/3": "#f06595", "8/2": "#2f9e44", "8/3": "#e03131", "6/2": "#8d5524", "6/3": "#15aabf",
+  "SER cable|100": "#adb5bd", "SER cable|200": "#5c636a", "MHF cable|100": "#d4a373", "MHF cable|200": "#1d3557" };
+const WL_CABLE = { "SER cable": { 100: ["2", "4", "2-2-2-4"], 200: ["4/0", "2/0", "4/0-4/0-4/0-2/0"] }, "MHF cable": { 100: ["2", "4", "2-2-2-4"], 200: ["4/0", "2/0", "4/0-4/0-2/0-2/0"] } };
+const WIRE_LIST = (() => {
+  const L = [], grd = g => +g >= 10 ? g : "10";
+  [["Romex (NM-B)", "Romex"], ["MC cable", "MC"]].forEach(([c, grp]) => WL_SIZES.forEach(([g, n]) => L.push({ grp, key: `${c}|${g}/${n}`, name: `${g}/${n} ${grp}`, color: WL_COLORS[`${g}/${n}`], w: { kind: "wire", conduit: c, size: "", count: n, gauge: g, ins: "", ground: grd(g), sets: 1, mat: "CU", amps: null } })));
+  ["SER cable", "MHF cable"].forEach(c => [100, 200].forEach(a => { const [g, gr, cable] = WL_CABLE[c][a];
+    L.push({ grp: "SER and MHF", key: `${c}|${a}`, name: `${a} amp ${c.split(" ")[0]} (${cable} AL)`, color: WL_COLORS[`${c}|${a}`], w: { kind: "wire", conduit: c, size: "", count: 3, gauge: g, ins: "", ground: gr, sets: 1, mat: "AL", amps: null, cable } }); }));
+  return L;
+})();
+// a circuit: a run type made from the dropdown, numbered 1, 2, 3… in the job
+const isCirc = w => !!(w && w.circ);
+const runInk = w => !w ? null : w.color === "#ffffff" ? "#868e96" : w.color; // the draft line can't be white on a white sheet
+// + Add run offers only the conduit Jonathan uses; a run type that already has another one keeps it
+const RES_CONDUITS = ["EMT", "PVC Sch 40", "PVC Sch 80", "Rigid (RMC)", "No conduit"], RES_CSIZES = ['1"', '1-1/2"', '2"', '3"'];
 const GAUGES = ["14", "12", "10", "8", "6", "4", "3", "2", "1", "1/0", "2/0", "3/0", "4/0", "250", "300", "350", "400", "500", "600", "750"];
 const INSUL = ["STR", "SOL", "THHN STR", "THHN SOL", "XHHW", "XHHW-2 AL", "USE-2", "Bare"];
 // NEC 310.16, 75°C column: allowable ampacity by size
@@ -7128,6 +7180,8 @@ function fillOf(w) { // share of the conduit's inside area used, by EMT sizes
   const n = w.count + (w.ground ? 1 : 0);
   return { used: area / (EMT_AREA[w.size] || 1), max: n === 1 ? .53 : n === 2 ? .31 : .40 };
 }
+// + Add run only lists 1", 1-1/2", 2" and 3": round a fill size up to the next one listed
+const runSize = z => RES_CSIZES.find(x => CSIZES.indexOf(x) >= CSIZES.indexOf(z)) || RES_CSIZES[RES_CSIZES.length - 1];
 function conduitFor(w) {
   const sz = CSIZES.find(c => { const f = fillOf({ ...w, size: c }); return f && f.used <= f.max; });
   return sz || CSIZES[CSIZES.length - 1];
@@ -7139,15 +7193,21 @@ function wireLabel(w) {
   if (w.label) return `${w.label} · ${wireSpec(w)}`;
   return wireSpec(w);
 }
-const wireShort = w => isDitch(w) ? `Open and close ditch${w.label ? "" : ` · ${w.depth || 24}" deep`}` : isJH(w) ? `J-hooks every ${w.interval || 5}'` : isPull(w) ? `${w.size} ${w.conduit} · pull string${hasTrench(w) ? " underground" : ""}` : isUG(w) ? `${w.size} ${w.conduit} underground` : w.amps ? `${w.amps} amp${hasTrench(w) ? " underground" : ""}` : `${w.conduit === "No conduit" || NOPIPE.includes(w.conduit) ? w.conduit === "No conduit" ? "" : w.conduit + " " : w.size + " " + w.conduit + " · "}${w.count}x ${gaugeTxt(w.gauge)}${hasTrench(w) ? " underground" : ""}`;
+const wireShort = w => isDitch(w) ? `Open and close ditch${w.label ? "" : ` · ${w.depth || 24}" deep`}` : isJH(w) ? `J-hooks every ${w.interval || 5}'` : isPull(w) ? `${w.size} ${w.conduit} · ${pullTxt(w)}${hasTrench(w) ? " underground" : ""}` : isUG(w) ? `${w.size} ${w.conduit} underground` : isCable(w) ? cableName(w) + (hasTrench(w) ? " underground" : "") : w.amps ? `${w.amps} amp${hasTrench(w) ? " underground" : ""}` : `${w.conduit === "No conduit" || NOPIPE.includes(w.conduit) ? w.conduit === "No conduit" ? "" : w.conduit + " " : w.size + " " + w.conduit + " · "}${w.count}x ${gaugeTxt(w.gauge)}${hasTrench(w) ? " underground" : ""}`;
+// empty conduit from the wire list has no pull string (w.bare)
+const pullTxt = w => w.bare ? "empty" : "pull string";
+// cables by their trade name: '12/2 Romex (NM-B)', '12/3 MC cable', '2-2-2-4 AL SER cable'
+const isCable = w => w && w.kind === "wire" && CABLES.includes(w.conduit) && (w.sets || 1) === 1;
+const cableName = w => w.cable && /^(SER|MHF) cable$/.test(w.conduit) ? `${w.cable} AL ${w.conduit}` : `${w.gauge}/${w.count} ${w.conduit}`;
 function wireSpec(w) {
   if (isDitch(w)) return `Open and close ditch, no conduit · ${trenchLabel(w)}`;
   if (isUG(w)) return `${(w.runs || 1) > 1 ? `${w.runs} runs of ` : ""}${w.size} ${w.conduit} underground · ${trenchLabel(w)}`;
   if (isJH(w)) return `J-hooks every ${w.interval || 5}'`;
-  if (isPull(w)) return `${(w.runs || 1) > 1 ? `${w.runs} runs of ` : ""}${w.size} ${w.conduit} · pull string${w.trench ? ` · underground ${trenchLabel(w)}` : ""}`;
+  if (isPull(w)) return `${(w.runs || 1) > 1 ? `${w.runs} runs of ` : ""}${w.size} ${w.conduit} · ${w.bare ? "empty conduit" : "pull string"}${w.trench ? ` · underground ${trenchLabel(w)}` : ""}`;
+  if (isCable(w) && w.cable && /^(SER|MHF) cable$/.test(w.conduit)) return cableName(w) + (w.trench ? ` · underground ${trenchLabel(w)}` : "");
   const sets = w.sets > 1 ? `${w.sets} sets of ` : "", amps = w.amps ? `${w.amps}A ${w.mat === "AL" ? "AL" : "CU"} · ` : "";
-  const pipe = w.conduit === "No conduit" ? "" : w.conduit === "MC cable" || w.conduit === "Romex (NM-B)" ? w.conduit : `${w.size} ${w.conduit}`;
-  const wire = `${w.count}x ${gaugeTxt(w.gauge)} ${w.ins}` + (w.ground ? ` + ${gaugeTxt(w.ground)} GND` : "");
+  const pipe = w.conduit === "No conduit" ? "" : CABLES.includes(w.conduit) ? w.conduit : `${w.size} ${w.conduit}`;
+  const wire = `${w.count}x ${gaugeTxt(w.gauge)}${w.ins ? " " + w.ins : ""}` + (w.ground ? ` + ${gaugeTxt(w.ground)} GND` : "");
   return amps + sets + (pipe ? `${pipe} · ${wire}` : wire) + (w.trench ? ` · underground ${trenchLabel(w)}` : "");
 }
 const wireTotal = w => isUG(w) || isJH(w) || isPull(w) || isDitch(w) ? 0 : ((w.count || 0) + (w.ground ? 1 : 0)) * (w.sets || 1);
@@ -7162,14 +7222,16 @@ function renderWires() {
     const li = document.createElement("li"); li.className = "cnt";
     const b = document.createElement("button"); b.type = "button"; b.className = "cnt-main";
     b.setAttribute("aria-pressed", tool === "run" && runType === w.id && !contRun);
-    b.title = "Draw a run of this type";
+    b.title = isCirc(w) ? `Circuit ${w.circ}: click to add more to it` : "Draw a run of this type";
     const sw = document.createElement("span"); sw.className = "wire-swatch"; sw.style.borderColor = w.color;
+    if (isCirc(w)) { sw.className = "wire-swatch circ" + (w.conduit === "MC cable" ? " mc" : ""); sw.style.background = w.color; sw.style.setProperty("--stripe", w.color); }
     const tx = document.createElement("span"); tx.className = "cnt-txt";
     // short in the side bar (like "800 amp · Lighting"); the full spec and footage are in the tooltip and on the count sheet
     const nm = document.createElement("b"); nm.textContent = wireShort(w);
+    if (isCirc(w)) { const no = document.createElement("span"); no.className = "cnt-num"; no.textContent = w.circ; nm.prepend(no); }
     tx.append(nm);
     if (w.label) { const ds = document.createElement("span"); ds.className = "d"; ds.textContent = w.label; tx.append(ds); }
-    b.title = `${wireLabel(w)}\n${!lf ? "Nothing drawn yet" : isJH(w) ? `${fmtLF(lf)} · ${hooksOf(w)} J-hooks` : isDitch(w) ? `${fmtLF(lf)} of ditch to open and close` : isUG(w) ? `${fmtLF(lf)} of conduit and trench` : isPull(w) ? `${fmtLF(lf * pipeRuns(w))} of conduit and pull string` : `${fmtLF(lf * pipeRuns(w))} of conduit · ${fmtLF(lf * wireTotal(w))} of wire`}\nClick to draw a run of this type`;
+    b.title = `${wireLabel(w)}\n${!lf ? "Nothing drawn yet" : isJH(w) ? `${fmtLF(lf)} · ${hooksOf(w)} J-hooks` : isDitch(w) ? `${fmtLF(lf)} of ditch to open and close` : isUG(w) ? `${fmtLF(lf)} of conduit and trench` : isPull(w) ? `${fmtLF(lf * pipeRuns(w))} of conduit${w.bare ? "" : " and pull string"}` : `${fmtLF(lf * pipeRuns(w))} of conduit · ${fmtLF(lf * wireTotal(w))} of wire`}\n${isCirc(w) ? `Click to add more to circuit ${w.circ}` : "Click to draw a run of this type"}`;
     b.append(sw, tx);
     b.onclick = () => startRunType(w.id);
     const e = document.createElement("button"); e.type = "button"; e.className = "cnt-edit"; e.title = "Edit this run type"; e.setAttribute("aria-label", "Edit " + wireLabel(w));
@@ -7198,7 +7260,9 @@ function continueRun(r) {
 }
 let editingWire = null;
 const fillSel = (id, opts, lab) => { $(id).innerHTML = opts.map(o => `<option value="${o.replace(/"/g, "&quot;")}">${(lab ? lab(o) : o).replace(/"/g, "&quot;")}</option>`).join(""); };
-fillSel("wConduit", CONDUITS); fillSel("wSize", CSIZES); fillSel("wGauge", GAUGES, gaugeTxt); fillSel("wIns", INSUL);
+const fillRunSels = w => { const c = RES_CONDUITS.concat(w && w.conduit && !RES_CONDUITS.includes(w.conduit) ? [w.conduit] : []), z = RES_CSIZES.concat(w && w.size && !RES_CSIZES.includes(w.size) ? [w.size] : []);
+  fillSel("wConduit", CONDUITS.filter(x => c.includes(x))); fillSel("wSize", CSIZES.filter(x => z.includes(x))); };
+fillRunSels(null); fillSel("wGauge", GAUGES, gaugeTxt); fillSel("wIns", INSUL);
 $("wGround").innerHTML = `<option value="">No separate ground</option>` + GAUGES.map(g => `<option value="${g}">${gaugeTxt(g)} ground</option>`).join("");
 function fillAmps() {
   const mat = $("wMat").value, opt = a => `<option value="${a}">${a} A · ${(sz => (sz.sets > 1 ? sz.sets + " sets of " : "") + gaugeTxt(sz.gauge))(sizeForAmps(mat, a))}</option>`;
@@ -7281,7 +7345,7 @@ function pickAmps() {
   $("wGauge").value = gauge; $("wSets").value = sets; $("wGround").value = egcFor(mat, amps);
   if (mat === "AL") $("wIns").value = "XHHW-2 AL"; else if ($("wIns").value === "XHHW-2 AL") $("wIns").value = "THHN STR";
   if (parseInt($("wCount").value, 10) < 2) $("wCount").value = 3;
-  if (!NOPIPE.includes($("wConduit").value)) $("wSize").value = conduitFor(wireFields());
+  if (!NOPIPE.includes($("wConduit").value)) $("wSize").value = runSize(conduitFor(wireFields()));
   wirePreview();
 }
 $("wAmps").addEventListener("input", pickAmps);
@@ -7304,7 +7368,7 @@ $("wFor").addEventListener("input", () => {
     if (pole) { $("wAmps").value = ""; $("wGauge").value = "10"; $("wCount").value = 2; $("wGround").value = "10"; $("wSets").value = 1; if ([...$("wIns").options].some(o => o.value === "THHN STR")) $("wIns").value = "THHN STR"; }
     else { $("wAmps").value = String(p.amps); pickAmps(); $("wCount").value = p.count; }
   }
-  $("wSize").value = pole ? '1"' : p.size || ($("wKind").value === "wire" && !NOPIPE.includes($("wConduit").value) ? conduitFor(wireFields()) : $("wSize").value);
+  $("wSize").value = pole ? '1"' : p.size || ($("wKind").value === "wire" && !NOPIPE.includes($("wConduit").value) ? runSize(conduitFor(wireFields())) : $("wSize").value);
   wirePreview();
 });
 function openWire(id) {
@@ -7313,9 +7377,11 @@ function openWire(id) {
   const list = wiresList();
   editingWire = id ? list.find(w => w.id === id) : null;
   const last = list[list.length - 1];
-  const w = editingWire || { conduit: "EMT", size: '3/4"', count: 5, gauge: "12", ins: "STR", ground: "", sets: 1, mat: "CU", amps: null, ...(last ? { conduit: last.conduit, ins: last.ins, mat: last.mat || "CU" } : {}) };
-  $("wireTitle").textContent = editingWire ? "Edit run type" : "New run type";
+  const w = editingWire || { conduit: "EMT", size: '1"', count: 5, gauge: "12", ins: "STR", ground: "", sets: 1, mat: "CU", amps: null, ...(last ? { conduit: last.conduit, ins: last.ins, mat: last.mat || "CU" } : {}) };
+  $("wireTitle").textContent = editingWire ? (isCirc(editingWire) ? `Edit circuit ${editingWire.circ}` : "Edit run type") : "Add run";
   $("wMat").value = w.mat || "CU"; fillAmps(); $("wAmps").value = w.amps || ""; $("wSets").value = w.sets || 1;
+  if (!editingWire) { if (!RES_CONDUITS.includes(w.conduit)) w.conduit = "EMT"; if (!INSUL.includes(w.ins)) w.ins = "STR"; }
+  fillRunSels(w);
   $("wConduit").value = w.conduit; $("wSize").value = w.size; $("wCount").value = w.count; $("wGauge").value = w.gauge; $("wIns").value = w.ins; $("wGround").value = w.ground || "";
   $("wColor").value = w.color || PALETTE[(list.length + 3) % PALETTE.length];
   $("wLabel").value = w.label || ""; $("wKind").value = ["ug", "jhook", "pull", "ditch"].includes(w.kind) ? w.kind : "wire"; $("wHook").value = w.interval || 5; $("wDepth").value = String(w.depth || 24); $("wFill").value = w.backfill || "None"; $("wWidth").value = String(w.width || 30); $("wRuns").value = w.runs || 1; $("wFillDepth").value = w.fillDepth || "full"; $("wSpacer").value = String(w.spacer || 0); $("wTrench").checked = !!w.trench; $("wFor").value = w.for || ""; if (isPull(w)) $("wKind").value = "pull";
@@ -7326,6 +7392,22 @@ function openWire(id) {
   $("wireModal").hidden = false; $("wConduit").focus();
 }
 $("addWireBtn").onclick = () => openWire(null);
+// Wire dropdown: every pick starts a new circuit (Jonathan 2026-11-22); click a circuit in the list to add more to it
+function fillWireSel() {
+  const groups = [...new Set(WIRE_LIST.map(x => x.grp))];
+  $("wireSel").innerHTML = `<option value="">+ New circuit: pick the wire…</option>` + groups.map(g => `<optgroup label="${g}">` + WIRE_LIST.filter(x => x.grp === g).map(x => `<option value="${x.key}">${x.name}</option>`).join("") + `</optgroup>`).join("");
+}
+fillWireSel();
+function newCircuit(key) {
+  const it = WIRE_LIST.find(x => x.key === key); if (!it || !pages.length) return;
+  const list = wiresList(), n = list.reduce((m, w) => Math.max(m, w.circ || 0), 0) + 1;
+  const w = { id: uid(), label: "", ...structuredClone(it.w), color: it.color, preset: it.key, circ: n };
+  list.push(w); if (job) { job.updated = new Date().toISOString(); saveJob(job); }
+  renderWires(); renderRuns(); drawOverlay();
+  if (tool === "run") { runType = null; contRun = null; draft = []; }
+  startRunType(w.id);
+}
+$("wireSel").onchange = () => { const k = $("wireSel").value; $("wireSel").value = ""; if (k) newCircuit(k); };
 $("addDitchBtn").onclick = () => { if (!pages.length) return; openWire(null); $("wKind").value = "ditch"; $("wLabel").value = ""; $("wFill").value = "None"; $("wFillDepth").value = "full"; $("wColor").value = "#8d5524"; wirePreview(); $("wDepth").focus(); };
 $("wireCancel").onclick = () => { $("wireModal").hidden = true; };
 $("wireModal").addEventListener("keydown", e => { if (e.key === "Escape") $("wireModal").hidden = true; });
