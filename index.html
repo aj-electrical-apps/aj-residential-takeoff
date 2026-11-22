@@ -934,7 +934,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v17<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v18<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <span class="va-box no-print" id="vaBox" hidden></span>
@@ -3190,8 +3190,11 @@ const RES_SECN = {}; RES_CATS.forEach(c => { RES_SECN[resSlug(c)] = c; });
    (8 and 6 picked to stay apart). MC draws black with the matching Romex color down the middle.
    Conduit and everything else goes through + Add run (depth and wire options, like the commercial app), in 1", 1-1/2", 2" and 3". */
 const WL_SIZES = [["14", 2], ["14", 3], ["12", 2], ["12", 3], ["10", 2], ["10", 3], ["8", 2], ["8", 3], ["6", 2], ["6", 3]];
-const WL_COLORS = { "14/2": "#ffffff", "14/3": "#1c7ed6", "12/2": "#fcc419", "12/3": "#7b2cbf", "10/2": "#fd7e14", "10/3": "#f06595", "8/2": "#2f9e44", "8/3": "#e03131", "6/2": "#8d5524", "6/3": "#15aabf",
-  "SER cable|100": "#adb5bd", "SER cable|200": "#5c636a", "MHF cable|100": "#d4a373", "MHF cable|200": "#1d3557" };
+// v18: brighter (Jonathan 2026-11-22: "the colors are too dark"). WL_OLD maps the v10-v17 colors so circuits already drawn brighten too.
+const WL_COLORS = { "14/2": "#ffffff", "14/3": "#339af0", "12/2": "#ffd43b", "12/3": "#cc5de8", "10/2": "#ff922b", "10/3": "#f783ac", "8/2": "#51cf66", "8/3": "#ff6b6b", "6/2": "#d9822b", "6/3": "#22d3ee",
+  "SER cable|100": "#ced4da", "SER cable|200": "#909aa3", "MHF cable|100": "#e9b872", "MHF cable|200": "#5c7cfa" };
+const WL_OLD = { "#1c7ed6": "#339af0", "#fcc419": "#ffd43b", "#7b2cbf": "#cc5de8", "#fd7e14": "#ff922b", "#f06595": "#f783ac", "#2f9e44": "#51cf66", "#e03131": "#ff6b6b", "#8d5524": "#d9822b", "#15aabf": "#22d3ee",
+  "#adb5bd": "#ced4da", "#5c636a": "#909aa3", "#d4a373": "#e9b872", "#1d3557": "#5c7cfa" };
 const WL_CABLE = { "SER cable": { 100: ["2", "4", "2-2-2-4"], 200: ["4/0", "2/0", "4/0-4/0-4/0-2/0"] }, "MHF cable": { 100: ["2", "4", "2-2-2-4"], 200: ["4/0", "2/0", "4/0-4/0-2/0-2/0"] } };
 const WIRE_LIST = (() => {
   const L = [], grd = g => +g >= 10 ? g : "10";
@@ -6473,8 +6476,11 @@ function drawCirc(g, p, r, w, ns, ptsAttr) {
   const RP = runPts(r), op = inScope(r) ? 1 : .3, mc = w.conduit === "MC cable", pts = ptsAttr(RP);
   // v17: every circuit is the same thin width (Jonathan 2026-11-22: room for many runs side by side). Widths are screen px / zoom,
   // not vector-effect, because Safari ignores vector-effect and the lines grew fat when zoomed in.
-  g.appendChild(svgEl("polyline", { points: pts, class: "mk-run", style: `stroke:#212529;stroke-width:${CIRC_W / k}px;opacity:${op}` }));
-  g.appendChild(svgEl("polyline", { points: pts, class: "mk-run", style: `stroke:${w.color};stroke-width:${(mc ? .9 : 1.3) / k}px;opacity:${op}` }));
+  // v18: the wire's own bright color fills the whole line (the dark edge made them look dark). White gets a gray edge so it shows; MC has a thin dotted black line down the middle, like armor.
+  const white = w.color === "#ffffff";
+  if (white) g.appendChild(svgEl("polyline", { points: pts, class: "mk-run", style: `stroke:#868e96;stroke-width:${CIRC_W / k}px;opacity:${op}` }));
+  g.appendChild(svgEl("polyline", { points: pts, class: "mk-run", style: `stroke:${w.color};stroke-width:${(white ? 1.3 : CIRC_W) / k}px;opacity:${op}` }));
+  if (mc) g.appendChild(svgEl("polyline", { points: pts, class: "mk-run", style: `stroke:#212529;stroke-width:${.6 / k}px;stroke-dasharray:${2 / k} ${2 / k};stroke-linecap:butt;opacity:${op}` }));
   const seg = [], fs = 11 / k; let tot = 0;
   for (let i = 1; i < RP.length; i++) { const [a, b] = [RP[i - 1], RP[i]], l = Math.hypot(b[0] - a[0], b[1] - a[1]); seg.push([a, b, l]); tot += l; }
   if (!tot) return;
@@ -6678,8 +6684,9 @@ function runTipHtml(r) {
     else if (isPull(w)) L.push(`Conduit with pull string${pipe ? ": " + esc(pipe) : ""}`);
     else {
       if (w.amps) L.push(`${w.amps} amp · ${w.mat === "AL" ? "aluminum" : "copper"}`);
-      if (pipe) L.push(`Conduit: ${esc(pipe)}`);
-      L.push(`Wire: ${w.count}x ${esc(gaugeTxt(w.gauge))} ${esc(w.ins)}${w.ground ? ` + ${esc(gaugeTxt(w.ground))} ground` : ""}`);
+      if (isCable(w)) L.push(`Cable: ${esc(cableName(w))}${w.ground && !w.cable ? " with ground" : ""} (no conduit)`); // v18: Romex/MC/SER/MHF are cable, not conduit
+      else if (pipe) L.push(`Conduit: ${esc(pipe)}`);
+      if (!isCable(w)) L.push(`Wire: ${w.count}x ${esc(gaugeTxt(w.gauge))} ${esc(w.ins)}${w.ground ? ` + ${esc(gaugeTxt(w.ground))} ground` : ""}`);
     }
     par = isUG(w) || isPull(w) ? w.runs || 1 : isDitch(w) || isJH(w) ? 1 : w.sets || 1;
     if (par > 1) L.push(isUG(w) || isPull(w) ? `${par} conduit runs side by side` : `${par} parallel sets`);
@@ -7225,7 +7232,9 @@ function finishRun() {
    Pick one and every run drawn is that type; its totals show conduit feet and wire feet (feet x wires). */
 let runType = null, contRun = null; // the type being drawn, and the run being made longer
 let exampleWires = [];
-const wiresList = () => job ? (job.wireTypes || (job.wireTypes = [])) : exampleWires;
+const wiresList = () => { const L = job ? (job.wireTypes || (job.wireTypes = [])) : exampleWires;
+  for (const w of L) if (w.preset && WL_OLD[w.color]) w.color = WL_OLD[w.color]; // brighten circuits made before v18
+  return L; };
 const wireOf = id => id ? wiresList().find(w => w.id === id) : null;
 const CONDUITS = ["EMT", "PVC Sch 40", "PVC Sch 80", "Rigid (RMC)", "IMC", "Flex (FMC)", "Sealtite (LFMC)", "MC cable", "Romex (NM-B)", "SER cable", "MHF cable", "No conduit"];
 const CABLES = ["MC cable", "Romex (NM-B)", "SER cable", "MHF cable"];
@@ -7299,6 +7308,7 @@ function wireSpec(w) {
   if (isJH(w)) return `J-hooks every ${w.interval || 5}'`;
   if (isPull(w)) return `${(w.runs || 1) > 1 ? `${w.runs} runs of ` : ""}${w.size} ${w.conduit} · ${w.bare ? "empty conduit" : "pull string"}${w.trench ? ` · underground ${trenchLabel(w)}` : ""}`;
   if (isCable(w) && w.cable && /^(SER|MHF) cable$/.test(w.conduit)) return cableName(w) + (w.trench ? ` · underground ${trenchLabel(w)}` : "");
+  if (isCable(w)) return cableName(w) + (w.ground ? " with ground" : "") + (w.trench ? ` · underground ${trenchLabel(w)}` : "");
   const sets = w.sets > 1 ? `${w.sets} sets of ` : "", amps = w.amps ? `${w.amps}A ${w.mat === "AL" ? "AL" : "CU"} · ` : "";
   const pipe = w.conduit === "No conduit" ? "" : CABLES.includes(w.conduit) ? w.conduit : `${w.size} ${w.conduit}`;
   const wire = `${w.count}x ${gaugeTxt(w.gauge)}${w.ins ? " " + w.ins : ""}` + (w.ground ? ` + ${gaugeTxt(w.ground)} GND` : "");
