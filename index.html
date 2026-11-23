@@ -986,13 +986,26 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 .ts-table.ld-mtbl input { padding: 4px 6px; font-size: 13px; }
 .ts-table.ld-mtbl input[type=number] { width: 96px; text-align: right; }
 .ts-table.ld-mtbl input.ld-parts { width: 100%; min-width: 260px; }
+.ld-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-width: 260px; }
+.ld-chip { display: inline-block; padding: 1px 7px; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; white-space: nowrap; background: var(--bg); }
+.ld-chip b { font-weight: 600; }
+.ld-chip.u-ft { border-color: #3a62c8; }
+.ld-chip.u-d { border-color: #2f9e44; }
+.ld-chip.over { border-color: var(--warn); background: var(--warn-soft); }
+.ld-chip.need { border-style: dashed; color: var(--muted); }
+tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 10px; }
+.ld-ptbl { border-collapse: collapse; }
+.ld-ptbl td, .ld-ptbl th { padding: 2px 4px; text-align: left; font-size: 12px; }
+.ts-table.ld-mtbl .ld-ptbl input[type=number] { width: 76px; }
+.ts-table.ld-mtbl .ld-ptbl input.ld-pn { width: 240px; }
+.ld-ptbl select { padding: 3px 4px; font: inherit; }
 .ld-mtbl input.over { border-color: var(--warn); background: var(--warn-soft); }
 @media print { .ts-table input.rs-q, .ts-table input.rs-p, #rsDisc { display: none; } }
 </style>
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v26<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v28<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="leadBtn" type="button" hidden title="Leadership: job schedule and the master parts sheet">Leadership</button>
@@ -3156,15 +3169,37 @@ const RES_ITEMS = [
   {"id": "hvac70", "name": "HVAC Feed - 70A", "cat": "HVAC", "mins": 150.6, "labor": 250.0, "material": 153.0, "price": 403.0, "notes": "50' 2/2/2/4 SER AL, 100A disconnect, $25 misc", "sym": symbolHvacDisconnect('70A')},
   {"id": "sub100", "name": "100A Sub Panel (75')", "cat": "Panels & service", "mins": 325.9, "labor": 541.0, "material": 353.91, "price": 894.91, "notes": "75' 2-2-2-4, 100A 20-space panel, $50 misc", "sym": symbolPanel('SUB','100A')},
   {"id": "sub200", "name": "200A Sub Panel", "cat": "Panels & service", "mins": 435.99, "labor": 723.75, "material": 631.25, "price": 1355.0, "notes": "75' 4/0-4/0-4/0-2/0, 200A 40-space panel, $50 misc", "sym": symbolPanel('SUB','200A')},
-  {"id": "svc200ug", "name": "200A Service - Underground", "cat": "Panels & service", "mins": 640.36, "labor": 1063.0, "material": 997.3, "price": 2060.3, "notes": "meter, 200A panel, 4/0 feeders, LBs, sch80, GFCI breakers, $50 misc", "sym": symbolServiceUnderground('200A')},
-  {"id": "svc200oh", "name": "200A Service - Overhead", "cat": "Panels & service", "mins": 640.36, "labor": 1063.0, "material": 1114.42, "price": 2177.42, "notes": "4/0 feeders, 2.5\" rigid, LBs, ground rods, GFCI breakers, $50 misc", "sym": symbolServiceOverhead('200A')},
-  {"id": "svc400", "name": "400A Service", "cat": "Panels & service", "mins": 1004.16, "labor": 1666.9, "material": 2161.0, "price": 3827.9, "notes": "meter, 2x 200A panels, 4/0 feeders, sch80, ground rods, GFCI breakers, $50 misc", "sym": symbolPanel('SVC','400A')},
+  {"id": "svc200ug", "name": "200A Service - Underground", "cat": "Panels & service", "mins": 640.36, "labor": 1063.0, "material": 997.3, "price": 2060.3, "parts": [{"q": 1, "u": "ea", "n": "meter"}, {"q": 1, "u": "ea", "n": "200A panel"}, {"q": 0, "u": "ft", "n": "4/0 feeders"}, {"q": 0, "u": "ea", "n": "LBs"}, {"q": 0, "u": "ft", "n": "sch80"}, {"q": 0, "u": "ea", "n": "GFCI breakers"}, {"q": 50, "u": "$", "n": "misc"}], "notes": "meter, 200A panel, 4/0 feeders, LBs, sch80, GFCI breakers, $50 misc", "sym": symbolServiceUnderground('200A')},
+  {"id": "svc200oh", "name": "200A Service - Overhead", "cat": "Panels & service", "mins": 640.36, "labor": 1063.0, "material": 1114.42, "price": 2177.42, "parts": [{"q": 0, "u": "ft", "n": "4/0 feeders"}, {"q": 0, "u": "ft", "n": "2.5\" rigid"}, {"q": 0, "u": "ea", "n": "LBs"}, {"q": 0, "u": "ea", "n": "ground rods"}, {"q": 0, "u": "ea", "n": "GFCI breakers"}, {"q": 50, "u": "$", "n": "misc"}], "notes": "4/0 feeders, 2.5\" rigid, LBs, ground rods, GFCI breakers, $50 misc", "sym": symbolServiceOverhead('200A')},
+  {"id": "svc400", "name": "400A Service", "cat": "Panels & service", "mins": 1004.16, "labor": 1666.9, "material": 2161.0, "price": 3827.9, "parts": [{"q": 1, "u": "ea", "n": "meter"}, {"q": 2, "u": "ea", "n": "200A panel"}, {"q": 0, "u": "ft", "n": "4/0 feeders"}, {"q": 0, "u": "ft", "n": "sch80"}, {"q": 0, "u": "ea", "n": "ground rods"}, {"q": 0, "u": "ea", "n": "GFCI breakers"}, {"q": 50, "u": "$", "n": "misc"}], "notes": "meter, 2x 200A panels, 4/0 feeders, sch80, ground rods, GFCI breakers, $50 misc", "sym": symbolPanel('SVC','400A')},
   {"id": "svc600", "name": "600A Service", "cat": "Panels & service", "mins": 1361.45, "labor": 2260.0, "material": 3155.0, "price": 5415.0, "notes": "", "sym": symbolPanel('SVC','600A')},
-  {"id": "ugft", "name": "Service Underground (per ft)", "cat": "Per foot & labor", "unit": "ft", "mins": 4.22, "labor": 7.0, "material": 3.5, "price": 10.5, "notes": "up to 400A, 3\" sch40, dig-in $7/ft, 150' minimum"},
-  {"id": "travel", "name": "Daily Travel Fee (up to 90 mi)", "cat": "Per foot & labor", "unit": "day", "mins": 0, "labor": 0, "material": 0, "price": 0, "notes": "flat rate on jobs over 30 miles, per day"},
-  {"id": "hour", "name": "Labor per 1 man-hour", "cat": "Per foot & labor", "unit": "hr", "mins": 60.24, "labor": 100.0, "material": 0, "price": 100.0, "notes": "per 1 man-hour"}
+  {"id": "ugft", "name": "Service Underground (per ft)", "cat": "Per foot & labor", "unit": "ft", "mins": 4.22, "labor": 7.0, "material": 3.5, "price": 10.5, "parts": [{"q": 1, "u": "ft", "n": "3\" sch40 PVC"}], "notes": "up to 400A, 3\" sch40, dig-in $7/ft, 150' minimum"},
+  {"id": "travel", "name": "Daily Travel Fee (up to 90 mi)", "cat": "Per foot & labor", "unit": "day", "mins": 0, "labor": 0, "material": 0, "price": 0, "parts": [], "notes": "flat rate on jobs over 30 miles, per day"},
+  {"id": "hour", "name": "Labor per 1 man-hour", "cat": "Per foot & labor", "unit": "hr", "mins": 60.24, "labor": 100.0, "material": 0, "price": 100.0, "parts": [], "notes": "per 1 man-hour"}
 ];
 const RES_CATS = [...new Set(RES_ITEMS.map(i => i.cat))];
+/* Each item's parts, one line per part (Jonathan 2026-11-23: "i need them seperated because the boxes will be counted each
+   on the supplier sheet per light and the 12/2 wire will be counted in footage"). A part is { q, u, n, c }: u is "ft" (wire,
+   counted in feet), "ea" (boxes and devices, counted each) or "$" (misc, in dollars); c is the dollars each when the sheet
+   gives one. q 0 = as needed (goes on the estimator's checklist). The supplier sheet adds them up for the whole job.
+   Items without "parts" get them read from their "What's included" words: 25' 12/2, 2x4 box, GFCI, $15 misc. */
+const RES_UNITS = { ft: "ft", ea: "ea", $: "$" };
+const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+function resPartsParse(s) {
+  return String(s || "").split(",").map(t => t.trim()).filter(Boolean).map(t => {
+    let m, q = 1, c = null;
+    if ((m = t.match(/^\$\s*(\d+(?:\.\d+)?)\s*(.*)$/))) return { q: +m[1], u: "$", n: cap(m[2] || "misc") };
+    if ((m = t.match(/^(.*?)\s*\$\s*(\d+(?:\.\d+)?)$/)) && m[1]) { t = m[1]; c = +m[2]; }
+    if ((m = t.match(/^(\d+)\s*x\s+(.+)$/i))) { q = +m[1]; t = m[2]; }
+    if (c == null && (m = t.match(/^(\d+(?:\.\d+)?)'\s*(.+)$/))) return { q: q * +m[1], u: "ft", n: /^\d+\/\d+$/.test(m[2]) ? m[2] + " Romex" : m[2] };
+    if (q > 1) t = t.replace(/(breaker|panel)s$/i, "$1");
+    return { q, u: "ea", n: cap(t), ...(c != null ? { c } : {}) };
+  });
+}
+// the parts back as one line of words, for the price sheet and the item's tooltip
+const resPartsText = parts => (parts || []).map(p => p.u === "$" ? `$${+p.q} ${p.n}` : p.u === "ft" ? (p.q ? `${+p.q}' ${p.n}` : p.n) : `${p.q > 1 ? p.q + "x " : ""}${p.n}${p.c ? ` $${+p.c}` : ""}`).join(", ");
+const resPartsClean = parts => (Array.isArray(parts) ? parts : []).map(p => ({ q: Math.max(0, Math.round((+p.q || 0) * 100) / 100), u: RES_UNITS[p.u] ? p.u : "ea", n: String(p.n || "").trim().slice(0, 60), ...(+p.c > 0 ? { c: Math.round(+p.c * 100) / 100 } : {}) })).filter(p => p.n).slice(0, 20);
+RES_ITEMS.forEach(it => { it.parts = resPartsClean(it.parts || resPartsParse(it.notes)); });
 
 /* ===================== Residential (AJ Residential Takeoff) =====================
    Every residential item from the pricing sheet is a toolbox device "R-<id>" drawn with its Barn Electrical Pro symbol.
@@ -4732,6 +4767,11 @@ function asmEdits() {
 function saveAsmEdits() { try { localStorage.setItem("aj-asm-edits", JSON.stringify(asmEdits())); } catch (e) {} settingsTouch("aj-asm-edits"); }
 const asmFor = key => asmEdits()[key] || ASSEMBLIES[key] || [];
 const PRICE_BY_DESC = ["rmt|Floor box", "rmt|Poke-through", "rmt|Ceiling box"];
+// the residential items on the job with parts, and how many: the Residential price sheet's quantity (typed or counted);
+// a change order counts only what's placed in it
+function resSupRows() {
+  return resRows().filter(r => r.it.parts.length).map(r => ({ it: r.it, qty: coScope ? r.counted : r.qty })).filter(r => r.qty > 0);
+}
 function supplierRows() {
   const { counts, foot } = takeoffRows(), mat = new Map(), parts = new Map(), need = new Map(), fit = new Map();
   foot.filter(f => f.sup).forEach(f => mat.set(f.sup, (mat.get(f.sup) || 0) + f.total));
@@ -4747,6 +4787,16 @@ function supplierRows() {
       else if (n !== "Breakers") { const k = c.asm.split("|")[1]; need.set(n, (need.get(n) || new Set()).add(k)); } // breakers are for pricing only
     });
   });
+  // residential items: each part on its own line, times how many of the item the job has (the Residential price sheet's
+  // quantity): wire adds up in feet, boxes and devices each, misc in dollars. "12/2 Romex" from every item lands on one line.
+  const why = new Map(), misc = new Map(), note = (k, t) => why.set(k, [...(why.get(k) || []), t]);
+  resSupRows().forEach(({ it, qty }) => it.parts.forEach(p => {
+    const n = p.q * qty;
+    if (p.u === "$") { misc.set(p.n, (misc.get(p.n) || 0) + n); note("$:" + p.n, `${qty} ${it.name} × ${fmtC(p.q)}`); }
+    else if (!p.q) need.set(p.n, (need.get(p.n) || new Set()).add(it.name));
+    else if (p.u === "ft") { mat.set(p.n, (mat.get(p.n) || 0) + n); note("m:" + p.n, `${qty} ${it.name} × ${+p.q}'`); }
+    else { parts.set(p.n, (parts.get(p.n) || 0) + n); note("p:" + p.n, `${qty} ${it.name}${p.q !== 1 ? ` × ${+p.q}` : ""}`); }
+  }));
   // conduit fittings: coupling every 10', connector every 100', strap every 3' (underground: no straps); drops carry their own fittings
   foot.filter(f => f.sup && / conduit$/.test(f.sup) && !f.drop).forEach(f => {
     const nm = f.sup.replace(/ conduit$/, ""), cur = fit.get(nm) || { lf: 0, ug: 0, conn: 0, connLf: 0 };
@@ -4758,7 +4808,9 @@ function supplierRows() {
     if (v.lf - v.ug > 0) fittings.push({ name: `${nm} strap`, qty: Math.ceil((v.lf - v.ug) / 3) });
   });
   const ov = overOf(), set = (m, k) => { m.key = k; m.calc = m.qty; if (ov[k] != null && ov[k] !== "") m.qty = +ov[k]; return m; };
-  return { counts: counts.filter(c => !c.brk), mat: [...mat].map(([name, lf]) => ({ name, lf })), parts: [...parts].map(([name, qty]) => set({ name, qty }, "p:" + name)).sort((a, b) => a.name.localeCompare(b.name)),
+  const from = k => (why.get(k) || []).join(" + ");
+  return { counts: counts.filter(c => !c.brk), mat: [...mat].map(([name, lf]) => ({ name, lf: Math.ceil(lf), from: from("m:" + name) })), parts: [...parts].map(([name, qty]) => set({ name, qty: Math.ceil(qty), from: from("p:" + name) }, "p:" + name)).sort((a, b) => a.name.localeCompare(b.name)),
+    misc: [...misc].map(([name, amt]) => ({ name, amt: Math.round(amt * 100) / 100, from: from("$:" + name) })),
     fittings: fittings.map(f => set(f, "f:" + f.name)).filter(f => f.qty || f.calc), need: [...need].map(([name, s2]) => set({ name, for: [...s2].join(", "), qty: 0 }, "n:" + name)) };
 }
 function renderNotes() {
@@ -6062,14 +6114,15 @@ function renderTakeoff() {
       renderTakeoff();
     });
   } else {
-    const { mat, parts, fittings, need } = supplierRows();
+    const { mat, parts, fittings, need, misc } = supplierRows();
     let h = `<thead><tr><th>Material</th><th class="n">Quantity</th></tr></thead><tbody>`;
     bySection(counts.filter(c => !c.misc && !c.brk)).forEach(sec => h += `<tr class="sec"><td colspan="2">${esc(sec.title)}</td></tr>` + sec.rows.map(c => `<tr><td>${esc(c.name)}${c.what ? `<small>${esc(c.what)}</small>` : ""}</td><td class="n">${c.qty} ea</td></tr>`).join(""));
     const miscSup = counts.filter(c => c.misc && c.sup);
     if (miscSup.length) h += `<tr class="sec"><td colspan="2">Misc items for pricing</td></tr>` + miscSup.map(c => `<tr><td>${esc(c.label || c.name)} (price this)${c.gravel ? `<small>${esc(c.what)}</small>` : ""}</td><td class="n">${c.qty.toLocaleString()} ${c.unit === "LF" ? "ft" : c.unit === "CY" ? "CY" : "ea"}</td></tr>`).join("");
-    if (mat.length) h += `<tr class="sec"><td colspan="2">Conduit and wire</td></tr>` + mat.map(m => `<tr><td>${esc(m.name)}</td><td class="n">${m.lf.toLocaleString()} ft</td></tr>`).join("");
+    if (mat.length) h += `<tr class="sec"><td colspan="2">Conduit and wire</td></tr>` + mat.map(m => `<tr><td>${esc(m.name)}${m.from ? `<small>${esc(m.from)}</small>` : ""}</td><td class="n">${m.lf.toLocaleString()} ft</td></tr>`).join("");
     if (fittings.length) h += `<tr class="sec"><td colspan="2">Conduit fittings</td></tr>` + fittings.map(m => `<tr><td>${esc(m.name)}</td><td class="n"><input type="number" class="sup-q${m.qty !== m.calc ? " over" : ""}" min="0" step="1" data-k="${esc(m.key)}" value="${m.qty || ""}" placeholder="${m.calc || "0"}" aria-label="Quantity of ${esc(m.name)}"> ea${m.qty !== m.calc ? `<span class="sup-was">was ${m.calc || "as needed"}</span>` : ""}</td></tr>`).join("");
-    if (parts.length) h += `<tr class="sec"><td colspan="2">Installation parts</td></tr>` + parts.map(m => `<tr><td>${esc(m.name)}</td><td class="n"><input type="number" class="sup-q${m.qty !== m.calc ? " over" : ""}" min="0" step="1" data-k="${esc(m.key)}" value="${m.qty || ""}" placeholder="${m.calc || "0"}" aria-label="Quantity of ${esc(m.name)}"> ea${m.qty !== m.calc ? `<span class="sup-was">was ${m.calc || "as needed"}</span>` : ""}</td></tr>`).join("");
+    if (parts.length) h += `<tr class="sec"><td colspan="2">Installation parts</td></tr>` + parts.map(m => `<tr><td>${esc(m.name)}${m.from ? `<small>${esc(m.from)}</small>` : ""}</td><td class="n"><input type="number" class="sup-q${m.qty !== m.calc ? " over" : ""}" min="0" step="1" data-k="${esc(m.key)}" value="${m.qty || ""}" placeholder="${m.calc || "0"}" aria-label="Quantity of ${esc(m.name)}"> ea${m.qty !== m.calc ? `<span class="sup-was">was ${m.calc || "as needed"}</span>` : ""}</td></tr>`).join("");
+    if (misc.length) h += `<tr class="sec"><td colspan="2">Misc material (dollars)<small>Not on the supplier's copy</small></td></tr>` + misc.map(m => `<tr class="need-blank"><td>${esc(m.name)}<small>${esc(m.from)}</small></td><td class="n">${fmtC(m.amt)}</td></tr>`).join("");
     if (need.length) h += `<tr class="sec${need.some(m => m.qty) ? "" : " need-blank"}"><td colspan="2">Your checklist, sized by the layout<small>Not on the supplier's copy unless you type a quantity</small></td></tr>` + need.map(m => `<tr${m.qty ? "" : ' class="need-blank"'}><td>${esc(m.name)}<small>For ${esc(m.for)}</small></td><td class="n"><input type="number" class="sup-q${m.qty !== m.calc ? " over" : ""}" min="0" step="1" data-k="${esc(m.key)}" value="${m.qty || ""}" placeholder="as needed" aria-label="Quantity of ${esc(m.name)}"> ea${m.qty !== m.calc ? `<span class="sup-was">was ${m.calc || "as needed"}</span>` : ""}</td></tr>`).join("");
     t.innerHTML = h + roomRows(4) + redNotesRows(2, "Notes for supplier") + `</tbody>`;
     fillRedCrops(t);
@@ -11069,11 +11122,11 @@ function supLines() {
 // the supplier list of only what the field drew: the same math, run on the field marks alone
 function ghostLines() {
   if (!ghostAny()) return [];
-  const keep = pages.map(p => [p.devices, p.runs, p.rooms]), hold = job ? [job.imports, job.supOver] : null;
+  const keep = pages.map(p => [p.devices, p.runs, p.rooms]), hold = job ? [job.imports, job.supOver, job.resPrice] : null;
   pages.forEach(p => { const g = ghostOf(p); p.devices = g.devices; p.runs = g.runs; p.rooms = []; });
-  if (job) { job.imports = []; job.supOver = {}; }
+  if (job) { job.imports = []; job.supOver = {}; job.resPrice = { ...(job.resPrice || {}), qty: {} }; }
   try { return supLines(); }
-  finally { pages.forEach((p, i) => { [p.devices, p.runs, p.rooms] = keep[i]; }); if (job) { [job.imports, job.supOver] = hold; } }
+  finally { pages.forEach((p, i) => { [p.devices, p.runs, p.rooms] = keep[i]; }); if (job) { [job.imports, job.supOver, job.resPrice] = hold; } }
 }
 function orderLines() {
   const m = new Map(), key = l => `${l.sec}|${l.name}`;
@@ -11256,8 +11309,10 @@ async function loadExamples() {
    at 4 men x 10-hour days unless changed. Saturdays and Sundays are skipped. Saved in api/leader (team/admin/schedule-*).
    Master parts sheet: every residential item's minutes, labor, material, sell price and what's included. A change here
    is what every estimate prices from (api/leader, team/admin/resmaster-*), kept on each device for working offline. */
-const RES_BASE = {}; RES_ITEMS.forEach(it => { RES_BASE[it.id] = { price: it.price, labor: it.labor, material: it.material, mins: it.mins, notes: it.notes }; });
-const RM_KEYS = ["mins", "labor", "material", "price", "notes"];
+const RES_BASE = {}; RES_ITEMS.forEach(it => { RES_BASE[it.id] = { price: it.price, labor: it.labor, material: it.material, mins: it.mins, notes: it.notes, parts: it.parts }; });
+const RM_KEYS = ["mins", "labor", "material", "price", "notes", "parts"];
+// parts are a list, so they compare by what's in them
+const rmEq = (k, a, b) => k === "parts" ? JSON.stringify(a || []) === JSON.stringify(b || []) : a === b;
 let resMaster = {}, resMasterInfo = { by: "", saved: null }, resMasterReady = false;
 const rmHas = id => !!resMaster[id] && RM_KEYS.some(k => resMaster[id][k] != null);
 // the job's man hours: the Residential price sheet's, or the Bid sheet's when nothing is priced there yet
@@ -11274,6 +11329,8 @@ function resMasterApply(items) {
   RES_ITEMS.forEach(it => {
     const b = RES_BASE[it.id], o = resMaster[it.id] || {};
     RM_KEYS.forEach(k => { it[k] = o[k] != null ? o[k] : b[k]; });
+    // a sheet saved before parts were split (only the words changed): read the parts from its words
+    if (o.parts == null && o.notes != null) it.parts = resPartsClean(resPartsParse(o.notes));
     const d = DEVICES["R-" + it.id]; if (d) d.model = it.notes;
   });
   document.querySelectorAll("[data-resdev]").forEach(b => {
@@ -11450,11 +11507,11 @@ $("leadToday").onclick = () => { leadWeek = 0; schedCal(); };
 $("leadSearch").oninput = e => { leadQ = e.target.value; schedDraw(); };
 $("leadFilter").querySelectorAll("[data-lf]").forEach(b => b.onclick = () => { leadFilter = b.dataset.lf; schedDraw(); });
 /* ----- master parts sheet ----- */
-let masterQ = "", masterPend = {}, masterT = null, masterNote = "";
-const rmChanged = (id, k) => resMaster[id] && resMaster[id][k] != null && resMaster[id][k] !== RES_BASE[id][k];
+let masterQ = "", masterPend = {}, masterT = null, masterNote = "", masterOpen = null; // masterOpen: the item whose parts are open for editing
+const rmChanged = (id, k) => resMaster[id] && resMaster[id][k] != null && !rmEq(k, resMaster[id][k], RES_BASE[id][k]);
 function masterSet(id, vals) {
   const b = RES_BASE[id], o = {};
-  RM_KEYS.forEach(k => { const v = vals[k]; if (v != null && v !== b[k]) o[k] = v; });
+  RM_KEYS.forEach(k => { const v = vals[k]; if (v != null && !rmEq(k, v, b[k])) o[k] = v; });
   const next = { ...resMaster }; if (Object.keys(o).length) next[id] = o; else delete next[id];
   masterPend[id] = Object.keys(o).length ? o : null;
   resMasterApply(next);
@@ -11475,17 +11532,29 @@ function masterInfo() {
   const n = Object.keys(resMaster).filter(rmHas).length;
   $("leadMInfo").textContent = (n ? `${n} item${n === 1 ? "" : "s"} changed from the starting price sheet.` : "Nothing changed from the starting price sheet yet.") + (resMasterInfo && resMasterInfo.saved ? ` Last saved ${whenSaved(resMasterInfo.saved)}${resMasterInfo.by ? " by " + resMasterInfo.by : ""}.` : "");
 }
+const partQty = p => p.u === "$" ? fmtC(p.q) : !p.q ? "as needed" : `${(+p.q).toLocaleString()} ${p.u}`;
+const partChip = (p, over) => `<span class="ld-chip u-${p.u === "$" ? "d" : p.u}${over ? " over" : ""}${p.q ? "" : " need"}"><b>${escH(partQty(p))}</b> ${escH(p.n)}${p.c ? ` <small>@ ${fmtC(p.c)}</small>` : ""}</span>`;
 function masterDraw() {
   const t = $("leadMTbl"), q = masterQ.trim().toLowerCase();
-  let h = `<thead><tr><th>Item</th><th class="n">Minutes</th><th class="n">Labor $</th><th class="n">Material $</th><th class="n">Sell price</th><th>What's included (parts)</th><th></th></tr></thead><tbody>`, sec = null;
-  RES_ITEMS.filter(it => !q || (it.name + " " + it.cat + " " + it.notes).toLowerCase().includes(q)).forEach(it => {
+  let h = `<thead><tr><th>Item</th><th class="n">Minutes</th><th class="n">Labor $</th><th class="n">Material $</th><th class="n">Sell price</th><th>Parts <small>(each one its own line on the supplier sheet)</small></th><th></th></tr></thead><tbody>`, sec = null;
+  RES_ITEMS.filter(it => !q || (it.name + " " + it.cat + " " + it.notes + " " + it.parts.map(p => p.n).join(" ")).toLowerCase().includes(q)).forEach(it => {
     if (it.cat !== sec) { sec = it.cat; h += `<tr class="sec"><td colspan="7">${escH(sec)}</td></tr>`; }
     const b = RES_BASE[it.id], cell = (k, step) => `<td class="n"><input type="number" min="0" step="${step}" data-m="${k}" class="${rmChanged(it.id, k) ? "over" : ""}" value="${+(+it[k]).toFixed(2)}" title="Starting sheet: ${b[k]}" aria-label="${escH(it.name)} ${k}"></td>`;
     const any = rmHas(it.id);
     h += `<tr data-id="${it.id}"><td><span class="rs-ic">${it.sym ? `<svg viewBox="-1.3 -1.3 2.6 2.6" class="rs-sym">${it.sym}</svg>` : ""}</span>${escH(it.name)}</td>
       ${cell("mins", "0.01")}${cell("labor", "0.01")}${cell("material", "0.01")}${cell("price", "0.01")}
-      <td><input data-m="notes" class="ld-parts${rmChanged(it.id, "notes") ? " over" : ""}" value="${escH(it.notes || "")}" maxlength="300" title="Starting sheet: ${escH(b.notes || "")}" aria-label="${escH(it.name)} parts"></td>
+      <td><div class="ld-chips" title="Starting sheet: ${escH(resPartsText(b.parts) || "no parts")}">${it.parts.map(p => partChip(p, rmChanged(it.id, "parts") && !b.parts.some(x => rmEq("parts", [x], [p])))).join("") || `<span class="hint">No parts</span>`}
+        <button class="btn sm" type="button" data-pedit aria-expanded="${masterOpen === it.id}">${masterOpen === it.id ? "Done" : "Edit parts"}</button></div></td>
       <td>${any ? `<button class="btn sm" type="button" data-undo title="Put back the starting sheet's numbers">Undo</button>` : ""}</td></tr>`;
+    if (masterOpen === it.id) h += `<tr class="ld-pedit" data-pid="${it.id}"><td colspan="7"><table class="ld-ptbl"><thead><tr><th>Qty</th><th>Counted in</th><th>Part</th><th>$ each <small>(optional)</small></th><th></th></tr></thead><tbody>
+      ${it.parts.map((p, i) => `<tr data-pi="${i}"><td><input type="number" min="0" step="any" data-pf="q" value="${+p.q}" aria-label="Quantity"></td>
+        <td><select data-pf="u" aria-label="Counted in"><option value="ft"${p.u === "ft" ? " selected" : ""}>feet (wire)</option><option value="ea"${p.u === "ea" ? " selected" : ""}>each (boxes, devices)</option><option value="$"${p.u === "$" ? " selected" : ""}>dollars (misc)</option></select></td>
+        <td><input class="ld-pn" data-pf="n" value="${escH(p.n)}" maxlength="60" aria-label="Part name"></td>
+        <td>${p.u === "$" ? "" : `<input type="number" min="0" step="0.01" data-pf="c" value="${p.c || ""}" placeholder="" aria-label="Dollars each">`}</td>
+        <td><button class="btn sm" type="button" data-pdel aria-label="Remove ${escH(p.n)}">Remove</button></td></tr>`).join("")}
+      </tbody></table>
+      <p class="hint">Wire in feet per item (25 for 25' of 12/2). Boxes and devices count each. Misc is dollars. Qty 0 means as needed: it goes on the estimator's checklist on the supplier sheet.</p>
+      <button class="btn sm" type="button" data-padd="ea">+ Add part</button> <button class="btn sm" type="button" data-padd="ft">+ Add wire</button> <button class="btn sm" type="button" data-padd="$">+ Add misc $</button></td></tr>`;
   });
   t.innerHTML = h + "</tbody>";
   t.querySelectorAll("tr[data-id]").forEach(tr => {
@@ -11500,7 +11569,26 @@ function masterDraw() {
       masterSet(id, cur); masterDraw();
     });
     const u = tr.querySelector("[data-undo]"); if (u) u.onclick = () => { masterSet(id, { ...RES_BASE[id] }); masterDraw(); };
+    const pe = tr.querySelector("[data-pedit]"); if (pe) pe.onclick = () => { masterOpen = masterOpen === id ? null : id; masterDraw(); };
   });
+  // the open item's parts: every change saves, and the words on the price sheet are rewritten from the parts
+  const pr = t.querySelector("tr.ld-pedit");
+  if (pr) {
+    const id = pr.dataset.pid, it = RES_ITEMS.find(x => x.id === id);
+    const put = parts => { const cur = {}; RM_KEYS.forEach(x => { cur[x] = it[x]; }); cur.parts = resPartsClean(parts); cur.notes = resPartsText(cur.parts); masterSet(id, cur); masterDraw(); };
+    const list = () => it.parts.map(p => ({ ...p }));
+    pr.querySelectorAll("tr[data-pi] [data-pf]").forEach(inp => inp.onchange = () => {
+      const ps = list(), p = ps[+inp.closest("tr").dataset.pi], f = inp.dataset.pf;
+      if (f === "n") p.n = inp.value; else if (f === "u") { p.u = inp.value; if (p.u === "$") delete p.c; } else if (f === "c") p.c = +inp.value || 0; else p.q = +inp.value || 0;
+      if (f === "n" && !p.n.trim()) return masterDraw(); // a blank name would drop the part: use Remove for that
+      put(ps);
+    });
+    pr.querySelectorAll("[data-pdel]").forEach(b => b.onclick = () => { const ps = list(); ps.splice(+b.closest("tr").dataset.pi, 1); put(ps); });
+    pr.querySelectorAll("[data-padd]").forEach(b => b.onclick = () => {
+      const u = b.dataset.padd; put([...list(), { q: u === "ft" ? 25 : u === "$" ? 15 : 1, u, n: u === "ft" ? "12/2 Romex" : u === "$" ? "misc" : "New part" }]);
+      const ins = t.querySelectorAll("tr.ld-pedit input.ld-pn"); if (ins.length) { ins[ins.length - 1].focus(); ins[ins.length - 1].select(); }
+    });
+  }
   masterInfo();
 }
 $("leadMSearch").oninput = e => { masterQ = e.target.value; masterDraw(); };
@@ -11536,8 +11624,8 @@ $("leadMFile").onchange = async e => {
     if (!it) { miss.push((r[ci.item] || r[ci.id] || "").trim()); return; }
     const cur = {}; RM_KEYS.forEach(k => { cur[k] = it[k]; });
     ["mins", "labor", "material", "price"].forEach(k => { if (ci[k] >= 0) { const v = parseFloat(String(r[ci[k]] || "").replace(/[$,\s]/g, "")); if (Number.isFinite(v) && v >= 0) cur[k] = Math.round(v * 100) / 100; } });
-    if (ci.notes >= 0 && r[ci.notes] != null) cur.notes = String(r[ci.notes]).trim();
-    if (RM_KEYS.some(k => cur[k] !== it[k])) { masterSet(it.id, cur); n++; }
+    if (ci.notes >= 0 && r[ci.notes] != null && String(r[ci.notes]).trim() !== it.notes) { cur.notes = String(r[ci.notes]).trim(); cur.parts = resPartsClean(resPartsParse(cur.notes)); }
+    if (RM_KEYS.some(k => !rmEq(k, cur[k], it[k]))) { masterSet(it.id, cur); n++; }
   });
   masterDraw();
   masterNote = `${n} item${n === 1 ? "" : "s"} changed from the spreadsheet${miss.length ? `. Not on the price list, skipped: ${miss.slice(0, 5).join(", ")}${miss.length > 5 ? "…" : ""}` : ""}.`;
