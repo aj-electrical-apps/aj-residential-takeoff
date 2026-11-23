@@ -549,7 +549,8 @@ html.look-new body { font-family: var(--font-ui); }
 .fco-pick { display: inline-flex; gap: 4px; white-space: nowrap; }
 .fco-pick .btn[aria-pressed="true"][data-c="charge"] { background: #d3f9d8; border-color: #2f9e44; color: #0b3d17; }
 .fco-pick .btn[aria-pressed="true"][data-c="free"] { background: #e7f5ff; border-color: #1971c2; color: #0b3a66; }
-.fco-tbl tfoot td { border-top: 2px solid var(--line, #dee2e6); }
+.fco-tbl tfoot tr:first-child td { border-top: 2px solid var(--line, #dee2e6); }
+.fco-tbl .fco-mk input { width: 70px; height: 28px; text-align: right; padding: 0 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--fg); }
 
 .pin-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .pin-picks .btn[aria-pressed="true"] { background: #ffe3e3; border-color: #e03131; }
@@ -949,7 +950,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v21<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v22<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <span class="va-box no-print" id="vaBox" hidden></span>
@@ -10779,7 +10780,7 @@ function fcoOf(make) {
   let c = coList().find(x => x.field);
   if (!c && make && job) {
     const n = coList().reduce((m, x) => Math.max(m, x.n), 0) + 1;
-    c = { id: uid(), n, name: "Field changes", date: trkToday(), desc: "Changes made in the field: items moved and items added.", field: true, items: {} };
+    c = { id: uid(), n, name: "Field changes", date: trkToday(), desc: "Changes made in the field: items moved and items added.", field: true, items: {}, mk: +lsGet("aj-fco-mk") || 0 };
     coList().push(c);
   }
   if (c) c.items = c.items || {};
@@ -10787,7 +10788,12 @@ function fcoOf(make) {
 }
 const fcoPick = (c, it) => c && c.items[it.key] || {};
 const fcoAmt = (c, it) => { const s = fcoPick(c, it); return s.amt != null && s.amt !== "" ? +s.amt : it.dflt; };
-const fcoTotal = c => fcoItems().reduce((t, it) => t + (fcoPick(c, it).c === "charge" ? fcoAmt(c, it) : 0), 0);
+const fcoSub = c => fcoItems().reduce((t, it) => t + (fcoPick(c, it).c === "charge" ? fcoAmt(c, it) : 0), 0);
+/* Markup (Jonathan 2026-11-23): "a place to add a mark up on change order". A percent on the Charge items plus an optional flat
+   dollar amount (c.mk, c.mkAmt). It's rolled into the total; the proposal still shows only the total. The last percent used
+   starts the next job's field change order. */
+const fcoMk = c => { const sub = c ? fcoSub(c) : 0, pct = c && +c.mk || 0, flat = sub > 0 && c && +c.mkAmt || 0; return { sub, pct, flat, up: sub * pct / 100 + flat }; };
+const fcoTotal = c => { const m = fcoMk(c); return m.sub + m.up; };
 // the PM's to-do: field changes nobody has marked Charge or No charge yet
 const fcoOpen = () => { const c = fcoOf(false); return fcoItems().filter(it => !fcoPick(c, it).c).length; };
 function fcoBadge() {
@@ -10829,7 +10835,12 @@ function renderFco() {
       <td><span class="fco-pick"><button class="btn sm" type="button" data-c="charge"${on("charge")}${pm ? "" : " disabled"}>Charge</button><button class="btn sm" type="button" data-c="free"${on("free")}${pm ? "" : " disabled"}>No charge</button></span></td></tr>`;
   };
   t.innerHTML = `<thead><tr><th>Change</th><th>Item</th><th>Where</th><th>By</th><th class="n">Price</th><th>Charge?</th></tr></thead><tbody>${L.map(row).join("")}</tbody>
-    <tfoot><tr><td colspan="4"><b>Total change order</b> <small class="hint">(only Charge items count; the proposal shows this total, no prices per item)</small></td><td class="n"><b>${fmt$(c ? fcoTotal(c) : 0)}</b></td><td></td></tr></tfoot>`;
+    <tfoot>${(() => { const m = fcoMk(c), dis = pm ? "" : " disabled";
+      return `<tr><td colspan="4">Charge items</td><td class="n">${fmt$(m.sub)}</td><td></td></tr>
+      <tr class="fco-mk"><td colspan="4">Markup <input type="number" id="fcoMkPct" min="0" step="0.5" value="${m.pct || ""}" placeholder="0" aria-label="Markup percent"${dis}> % <span class="hint">plus</span> $<input type="number" id="fcoMkAmt" min="0" step="1" value="${c && +c.mkAmt || ""}" placeholder="0" aria-label="Markup dollars"${dis}></td><td class="n">${fmt$(m.up)}</td><td></td></tr>
+      <tr><td colspan="4"><b>Total change order</b> <small class="hint">(only Charge items count; the markup is built into this total, and the proposal shows only the total)</small></td><td class="n"><b>${fmt$(m.sub + m.up)}</b></td><td></td></tr>`; })()}</tfoot>`;
+  const mk = (id, f) => { const inp = $(id); if (inp) inp.onchange = () => { const c2 = fcoOf(true), v = Math.max(0, +inp.value || 0); c2[f] = v; if (f === "mk") lsSet("aj-fco-mk", v ? String(v) : null); touchJob(); renderFco(); }; };
+  mk("fcoMkPct", "mk"); mk("fcoMkAmt", "mkAmt");
 }
 function fcoShow() { if (!job) return toast("Open a job first."); renderFco(); $("fcoModal").hidden = false; if (teamOn && job && !fieldDirty) fieldLoad().then(() => { if (!$("fcoModal").hidden) renderFco(); }).catch(() => {}); }
 $("fcoTbl").addEventListener("click", e => {
