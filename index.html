@@ -536,6 +536,21 @@ html.look-new body { font-family: var(--font-ui); }
 .inst-tbl td.left { color: #c92a2a; font-weight: 700; } .inst-tbl td.ok { color: #2b8a3e; font-weight: 700; }
 .inst-bar { height: 10px; border-radius: 5px; background: #ffe3e3; overflow: hidden; margin: 6px 0 12px; }
 .inst-bar i { display: block; height: 100%; background: #2f9e44; }
+/* field changes (Jonathan 2026-11-23): MOVED / ADDED tags on the drawing, and the Charge / No charge list */
+.mk-fchg { font-weight: 800; font-family: var(--font-mono); letter-spacing: .03em; paint-order: stroke; stroke: #fff; stroke-linejoin: round; pointer-events: none; }
+.mk-fchg.mv { fill: #e8590c; } .mk-fchg.ad { fill: #1971c2; }
+.mk-moved-ring { fill: none; stroke: #e8590c; stroke-dasharray: 3 2; pointer-events: none; }
+#coBtn b.fco-n { margin-left: 4px; background: #e8590c; color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; }
+.fco-act { display: inline-block; padding: 1px 8px; border-radius: 9px; font-size: 12px; font-weight: 700; color: #fff; }
+.fco-act.move { background: #e8590c; } .fco-act.add { background: #1971c2; }
+.fco-tbl tr.fco-todo td { background: #fff9db; }
+.fco-tbl tr.fco-free td:nth-child(2) { color: var(--muted, #868e96); }
+.fco-tbl .fco-amt { width: 90px; height: 30px; text-align: right; padding: 0 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--fg); }
+.fco-pick { display: inline-flex; gap: 4px; white-space: nowrap; }
+.fco-pick .btn[aria-pressed="true"][data-c="charge"] { background: #d3f9d8; border-color: #2f9e44; color: #0b3d17; }
+.fco-pick .btn[aria-pressed="true"][data-c="free"] { background: #e7f5ff; border-color: #1971c2; color: #0b3a66; }
+.fco-tbl tfoot td { border-top: 2px solid var(--line, #dee2e6); }
+
 .pin-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .pin-picks .btn[aria-pressed="true"] { background: #ffe3e3; border-color: #e03131; }
 .btn.pin-done { width: 100%; justify-content: center; background: #2f9e44; border-color: #2f9e44; color: #fff; font-weight: 700; padding: 12px; margin-bottom: 10px; }
@@ -1468,7 +1483,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
     <p class="hint">Click <b>Work on it</b>, then count and draw the change order's work. It shows on the sheets in orange with its CO number, and gets its own count sheet, material list, bid and proposal (Count sheet button). The base bid doesn't change. <b>Base bid</b> at the top goes back.</p>
     <div class="trk-wrap"><table class="co-tbl" id="coTbl"></table></div>
     <p class="empty" id="coEmpty">No change orders on this job yet.</p>
-    <div class="actions"><button class="btn" type="button" id="coClose">Close</button><button class="btn primary" type="button" id="coNew">+ New change order</button></div>
+    <div class="actions"><button class="btn" type="button" id="coClose">Close</button><span class="spacer"></span><button class="btn" type="button" id="coFieldBtn" hidden>Field changes</button><button class="btn primary" type="button" id="coNew">+ New change order</button></div>
   </div>
 </div>
 
@@ -1716,6 +1731,16 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
     <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="instOpen"> Only items with some left</label>
     <div class="trk-wrap"><table class="inst-tbl" id="instTbl"></table></div>
     <div class="actions"><span class="hint" id="instWhen"></span><span class="spacer"></span><button class="btn" type="button" id="instClose">Close</button></div>
+  </div>
+</div>
+<div class="modal" id="fcoModal" hidden role="dialog" aria-modal="true" aria-labelledby="fcoTitle">
+  <div class="modal-card trk-card">
+    <h2 id="fcoTitle">Field changes</h2>
+    <p class="hint">Everything the field moved or added. Pick <b>Charge</b> or <b>No charge</b> for each one. The change order proposal says each change in words, shows No charge on the free ones, and only the total has a price.</p>
+    <p class="hint" id="fcoSum" aria-live="polite"></p>
+    <div class="trk-wrap"><table class="inst-tbl fco-tbl" id="fcoTbl"></table></div>
+    <p class="empty" id="fcoEmpty">Nothing moved or added in the field on this job yet.</p>
+    <div class="actions"><button class="btn" type="button" id="fcoClose">Close</button><span class="spacer"></span><button class="btn" type="button" id="fcoAll">Charge all not picked</button><button class="btn primary" type="button" id="fcoMake">Change order proposal (PDF)</button></div>
   </div>
 </div>
 <div class="modal" id="pinModal" hidden role="dialog" aria-modal="true" aria-labelledby="pinTitle">
@@ -5219,12 +5244,12 @@ async function makeProposal() {
   for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(120); const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight(); doc.text(`${c.name || "AJ Electrical"} · ${j.name} · page ${i} of ${n}`, pw / 2, ph - 14, { align: "center" }); doc.setTextColor(0); }
   return new File([doc.output("blob")], coCur() ? `${safeName(j.name)} CO${coCur().n}.pdf` : `${safeName(j.name)} proposal.pdf`, { type: "application/pdf" });
 }
-async function saveProposal() {
-  let file;
+async function saveProposal(make) {
+  let file; make = typeof make === "function" ? make : null;
   busy("Making the proposal…", 0.2);
-  try { file = await makeProposal(); } catch (e) { busy(null, null); return toast("Couldn't make the proposal. Check your internet and try again."); }
+  try { file = await (make || makeProposal)(); } catch (e) { busy(null, null); return toast("Couldn't make the proposal. Check your internet and try again."); }
   busy(null, null);
-  if (!coScope) trkAddJob(true);
+  if (!coScope && !make) trkAddJob(true);
   if (await mcpReady) {
     try {
       busy("Saving the proposal to Google Drive…", .5, file.name);
@@ -5422,7 +5447,7 @@ function coSet(id) {
   if (!$("takeoffModal").hidden) renderTakeoff();
 }
 // a change order's price, worked out the same way as the proposal
-function coTotal(id) { const was = coScope; coScope = id; let t = 0; try { t = propTotals().total; } catch (e) {} coScope = was; return t; }
+function coTotal(id) { const fc = coList().find(c => c.id === id && c.field); if (fc) return fcoTotal(fc); const was = coScope; coScope = id; let t = 0; try { t = propTotals().total; } catch (e) {} coScope = was; return t; }
 const coMarks = id => pages.reduce((t, pg) => t + pg.devices.filter(v => v.co === id).length + pg.runs.filter(r => r.co === id).length, 0);
 function renderCo() {
   const list = coList();
@@ -5431,8 +5456,8 @@ function renderCo() {
     <td class="n">CO ${c.n}</td><td><input data-f="name" value="${esc(c.name || "")}" placeholder="e.g. Added break room" aria-label="Name"></td>
     <td><input type="date" data-f="date" value="${esc(c.date || "")}" aria-label="Date" style="width:140px"></td>
     <td><input data-f="desc" value="${esc(c.desc || "")}" placeholder="What the change is" aria-label="What changed"></td>
-    <td class="n">${coMarks(c.id)}</td><td class="n">${fmt$(coTotal(c.id))}</td>
-    <td><button class="btn sm${c.id === coScope ? "" : " primary"}" type="button" data-work>${c.id === coScope ? "Working on it" : "Work on it"}</button></td>
+    <td class="n">${c.field ? fcoItems().length : coMarks(c.id)}</td><td class="n">${fmt$(coTotal(c.id))}</td>
+    <td>${c.field ? `<button class="btn sm primary" type="button" data-fco>Charge or free</button>` : `<button class="btn sm${c.id === coScope ? "" : " primary"}" type="button" data-work>${c.id === coScope ? "Working on it" : "Work on it"}</button>`}</td>
     <td><button class="btn icon sm" type="button" data-del title="Delete this change order" aria-label="Delete this change order">✕</button></td></tr>`).join("") + "</tbody>" : "";
 }
 $("coTbl").addEventListener("change", e => {
@@ -5444,6 +5469,7 @@ $("coTbl").addEventListener("change", e => {
 $("coTbl").addEventListener("click", e => {
   const tr = e.target.closest("tr[data-id]"); if (!tr) return;
   const c = coList().find(x => x.id === tr.dataset.id); if (!c) return;
+  if (e.target.closest("[data-fco]")) { $("coModal").hidden = true; return fcoShow(); }
   if (e.target.closest("[data-work]")) { $("coModal").hidden = true; coSet(c.id); return toast(`Now counting ${coLabel(c)}. Anything you place or draw goes on it.`); }
   if (e.target.closest("[data-del]")) {
     const n = coMarks(c.id);
@@ -5454,7 +5480,7 @@ $("coTbl").addEventListener("click", e => {
     renderCo();
   }
 });
-$("coBtn").onclick = () => { if (!job) return toast("Open a job first."); renderCo(); $("coModal").hidden = false; };
+$("coBtn").onclick = () => { if (!job) return toast("Open a job first."); renderCo(); fcoBadge(); $("coModal").hidden = false; };
 $("coClose").onclick = () => { $("coModal").hidden = true; };
 $("coModal").addEventListener("keydown", e => { if (e.key === "Escape") $("coModal").hidden = true; });
 $("coNew").onclick = () => {
@@ -6616,7 +6642,7 @@ $("overlay").addEventListener("click", e => {
     if (e.detail > 1) return; // second click of a double-click deletes instead (dblclick below)
     const v = { t: placeType, x: q[0], y: q[1], ...(coScope ? { co: coScope } : {}) };
     if (fieldMode) { // the field's marks go in its own layer, never the estimate
-      const gv = { id: uid(), t: placeType, x: Math.round(q[0]), y: Math.round(q[1]), by: teamWho };
+      const gv = { id: uid(), t: placeType, x: Math.round(q[0]), y: Math.round(q[1]), by: teamWho, at: Date.now() };
       ghostOf(p).devices.push(gv); placed.push(gv); fieldTouch(); drawOverlay(); updateHint(); renderCounts(); return;
     }
     remember(); p.devices.push(v); placed.push(v);
@@ -7228,7 +7254,7 @@ function finishRun() {
   if (tool !== "run") return;
   if (draft.length < 2) { toast("Click at least two points to make a run."); return; }
   if (fieldMode) {
-    const g = ghostOf(p), r = { id: uid(), name: `Field run ${g.runs.length + 1}`, pts: draft, px: polyLen(draft), typeId: runType || null, by: teamWho };
+    const g = ghostOf(p), r = { id: uid(), name: `Field run ${g.runs.length + 1}`, pts: draft, px: polyLen(draft), typeId: runType || null, by: teamWho, at: Date.now() };
     g.runs.push(r); draft = []; hover = null; contRun = null; fieldTouch(); drawOverlay(); updateHint();
     return toast(`Field run added: ${fmtLF(r.px * p.ftPerPx)}. It's on the Order page, not in the estimate.`);
   }
@@ -10639,7 +10665,7 @@ function fieldMoveTo(p, q) {
     else { const o = movedRec(instKeyR(fc.v)) || { dx: 0, dy: 0 }; fieldLayer.moved = { ...(fieldLayer.moved || {}), [instKeyR(fc.v)]: { dx: Math.round(o.dx + dx), dy: Math.round(o.dy + dy), by, at: now } }; }
   }
   fieldMoving = null; setTool(null); fieldSaveMarks();
-  toast("Moved. Hold on it to see who moved it.");
+  toast("Moved. It shows MOVED on the drawing for the office too, and goes on the field change order.");
 }
 function fieldAddMore(fc) {
   if (fc.kind === "d") return setTool("place", fc.v.t);
@@ -10647,39 +10673,51 @@ function fieldAddMore(fc) {
 }
 // crossed out (red X / red dashes) and moved (dotted line back to the estimate's spot), on the office's view too
 function drawFieldChanges(top, p, ptsAttr) {
+  // MOVED and ADDED tags (Jonathan 2026-11-23): a move or an add in the field is flagged on the field's and the office's screens
+  const tag = (tx, ty, txt, cls, sc = 1) => top.appendChild(svgEl("text", { x: tx, y: ty, class: "mk-fchg " + cls, "font-size": 9 / k * Math.min(Math.max(sc, 1), 3), "stroke-width": 3 / k }, txt));
+  const mid = R => { const i = Math.max(1, Math.floor(R.length / 2)); return [(R[i - 1][0] + R[i][0]) / 2, (R[i - 1][1] + R[i][1]) / 2]; };
   const x = (cx, cy, r) => { top.appendChild(svgEl("path", { d: `M${cx - r} ${cy - r}L${cx + r} ${cy + r}M${cx + r} ${cy - r}L${cx - r} ${cy + r}`, class: "mk-decl", "stroke-width": 3 / k })); };
   (p.devices || []).forEach(v => {
     const d = devInfo(v.t); if (!d) return;
     const key = instKeyD(p, v), m = movedRec(key), [vx, vy] = posD(p, v), r = devR(p, d) * 1.3;
-    if (m) { top.appendChild(svgEl("line", { x1: v.x, y1: v.y, x2: vx, y2: vy, class: "mk-moved", "stroke-width": 1.5 / k })); top.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 4 / k, class: "mk-moved", "stroke-width": 1.5 / k })); }
+    if (m) {
+      top.appendChild(svgEl("line", { x1: v.x, y1: v.y, x2: vx, y2: vy, class: "mk-moved", "stroke-width": 1.5 / k })); top.appendChild(svgEl("circle", { cx: v.x, cy: v.y, r: 4 / k, class: "mk-moved", "stroke-width": 1.5 / k }));
+      top.appendChild(svgEl("circle", { cx: vx, cy: vy, r, class: "mk-moved-ring", "stroke-width": 1.5 / k }));
+      if (!declIs(key)) tag(vx + r * .8, vy - r * .8, "MOVED", "mv", devR(p, d) * k / 8);
+    }
     if (declIs(key)) x(vx, vy, r);
   });
-  (p.runs || []).forEach(r => { if (r.id && declIs(instKeyR(r))) top.appendChild(svgEl("polyline", { points: ptsAttr(runPts(r)), class: "mk-decl-run", "stroke-width": 4 / k })); });
+  (p.runs || []).forEach(r => {
+    if (!r.id) return;
+    if (declIs(instKeyR(r))) top.appendChild(svgEl("polyline", { points: ptsAttr(runPts(r)), class: "mk-decl-run", "stroke-width": 4 / k }));
+    else if (movedRec(instKeyR(r)) && r.pts && r.pts.length > 1) { const [mx, my] = mid(runPts(r)); tag(mx + 4 / k, my - 4 / k, "MOVED", "mv"); }
+  });
   if (!p.ghost || !(fieldMode || showGhost)) return;
-  p.ghost.devices.forEach(v => { const d = devInfo(v.t); if (d && declIs(instKeyD(p, v))) x(v.x, v.y, devR(p, d) * 1.3); });
-  p.ghost.runs.forEach(r => { if (declIs(instKeyR(r))) top.appendChild(svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-decl-run", "stroke-width": 4 / k })); });
+  p.ghost.devices.forEach(v => { const d = devInfo(v.t); if (!d) return; const r = devR(p, d) * 1.3; if (declIs(instKeyD(p, v))) x(v.x, v.y, r); else tag(v.x + r * .8, v.y - r * .8, "ADDED", "ad", devR(p, d) * k / 8); });
+  p.ghost.runs.forEach(r => { if (declIs(instKeyR(r))) top.appendChild(svgEl("polyline", { points: ptsAttr(r.pts), class: "mk-decl-run", "stroke-width": 4 / k })); else if (r.pts && r.pts.length > 1) { const [mx, my] = mid(r.pts); tag(mx + 4 / k, my - 4 / k, "ADDED", "ad"); } });
 }
 function drawInst(g0, p, ns, ptsAttr) {
   // a green highlight: a glow under the symbol or run (so it keeps its own color) and a ring and check on top
   const g = svgEl("g", { class: "mk-inst" }), top = svgEl("g", { class: "mk-inst-top" }), on = tool === "install";
   instRuns(p).forEach(r => {
     const d = instIs(instKeyR(r)); if (!d && !on) return;
-    g.appendChild(svgEl("polyline", { points: ptsAttr(runPts(r)), class: "mk-inst-run" + (d ? "" : " todo"), "stroke-width": (d ? 12 : 7) / k }));
+    g.appendChild(svgEl("polyline", { points: ptsAttr(runPts(r)), class: "mk-inst-run" + (d ? "" : " todo"), "stroke-width": (d ? 8 : 5) / k }));
   });
   drawFieldChanges(top, p, ptsAttr);
   instDevs(p).forEach(v => {
     const d = devInfo(v.t); if (hideSecs.has(cntSecKey(d)) && v.t !== findId) return;
     const [vx, vy] = posD(p, v), key = instKeyD(p, v), done = instIs(key), sc = devR(p, d) * k / 8;
     if (done) {
-      g.appendChild(svgEl("circle", { cx: vx, cy: vy, r: 16 / k * sc, class: "mk-inst-glow" }));
-      const c = svgEl("circle", { cx: vx, cy: vy, r: 16 / k * sc, class: "mk-inst-ring", "stroke-width": 2.5 / k });
+      // smaller ring (Jonathan 2026-11-23): it hugs the symbol instead of covering the ones next to it
+      g.appendChild(svgEl("circle", { cx: vx, cy: vy, r: 10 / k * sc, class: "mk-inst-glow" }));
+      const c = svgEl("circle", { cx: vx, cy: vy, r: 10 / k * sc, class: "mk-inst-ring", "stroke-width": 1.8 / k });
       const rec = instRec(key); c.appendChild(svgEl("title", {}, `${nameOf(d)} · installed${rec.by ? " by " + rec.by : ""} ${whenSaved(rec.at)}`));
       top.appendChild(c);
-      top.appendChild(svgEl("text", { x: vx + 10 / k * sc, y: vy + 17 / k * sc, class: "mk-inst-chk", "font-size": 14 / k * Math.min(sc, 3), "stroke-width": 3 / k }, "✓"));
-    } else if (on) top.appendChild(svgEl("circle", { cx: vx, cy: vy, r: 16 / k * sc, class: "mk-inst-todo", "stroke-width": 1.5 / k }));
+      top.appendChild(svgEl("text", { x: vx + 6 / k * sc, y: vy + 12 / k * sc, class: "mk-inst-chk", "font-size": 10 / k * Math.min(sc, 3), "stroke-width": 2.5 / k }, "✓"));
+    } else if (on) top.appendChild(svgEl("circle", { cx: vx, cy: vy, r: 10 / k * sc, class: "mk-inst-todo", "stroke-width": 1.2 / k }));
   });
   g0.insertBefore(g, g0.firstChild); g0.appendChild(top);
-  clearTimeout(drawInst.t); drawInst.t = setTimeout(instBadge, 300);
+  clearTimeout(drawInst.t); drawInst.t = setTimeout(() => { instBadge(); fcoBadge(); }, 300);
 }
 function drawPins(g0, p) {
   const one = (m, field) => {
@@ -10709,6 +10747,153 @@ function drawGhost(g0, p, ns, ptsAttr) {
     const e = shapeEl(d, v.x, v.y, devR(p, d), "mk-dev"); e.setAttribute("vector-effect", "non-scaling-stroke"); e.setAttribute("opacity", ".5");
     e.appendChild(svgEl("title", {}, `Field: ${nameOf(d)}${v.by ? " · by " + v.by : ""}`)); g0.appendChild(e);
   });
+}
+/* Field change order (Jonathan 2026-11-23): "items that have been added should show up in the PM and estimating as moved, and all
+   this should be added to a change order so the PM can click charge for it or give it for free, and it should show up on the change
+   order proposal as we are changing or we are adding, and a total added but no price next to them."
+   Everything the field added (p.ghost) or moved (fieldLayer.moved) goes on one change order in job.cos (field: true). The PM picks
+   Charge or No charge for each one (c.items: key -> { c: "charge" | "free", amt }). The price starts at the residential price list
+   (a move starts at the item's labor only, since its material is already in the bid) and the PM can type over it. The proposal says
+   each change in words, free ones say No charge, and only the total has a price. Items crossed out as not wanted stay off it. */
+const fcoRes = t => { const d = devInfo(t); return d && (d.res || (DEVICES[d.base] || {}).res) || null; };
+function fcoPrice(t, move) {
+  const it = fcoRes(t); if (!it || !it.price) return 0;
+  const o = resPriceOf().over[it.id], price = o != null ? +o : it.price;
+  return Math.round((move ? it.labor * price / it.price : price) * 100) / 100;
+}
+const fcoRunName = r => { const w = wireOf(r.typeId); return w ? (isCable(w) ? cableName(w) : wireShort(w)) : "wire"; };
+function fcoItems() {
+  const L = [];
+  pages.forEach((p, i) => {
+    const sheet = `Sheet ${i + 1}${p.name ? " · " + p.name : ""}`, ft = r => p.ftPerPx ? Math.round(r.px * p.ftPerPx) : 0;
+    (p.devices || []).forEach(v => { const d = devInfo(v.t), key = instKeyD(p, v), m = movedRec(key); if (d && m && !declIs(key)) L.push({ key, act: "move", kind: "d", name: nameOf(d), sheet, by: m.by, at: m.at, dflt: fcoPrice(v.t, true) }); });
+    (p.runs || []).forEach(r => { const key = r.id && instKeyR(r), m = key && movedRec(key); if (m && !declIs(key)) L.push({ key, act: "move", kind: "r", name: fcoRunName(r), ft: ft(r), sheet, by: m.by, at: m.at, dflt: 0 }); });
+    if (!p.ghost) return;
+    p.ghost.devices.forEach(v => { const d = devInfo(v.t), key = instKeyD(p, v); if (d && !declIs(key)) L.push({ key, act: "add", kind: "d", name: nameOf(d), sheet, by: v.by, at: v.at, dflt: fcoPrice(v.t, false) }); });
+    p.ghost.runs.forEach(r => { const key = instKeyR(r); if (!declIs(key)) L.push({ key, act: "add", kind: "r", name: fcoRunName(r), ft: ft(r), sheet, by: r.by, at: r.at, dflt: 0 }); });
+  });
+  return L;
+}
+// the field change order on this job; make = true starts it the first time the PM picks Charge or No charge
+function fcoOf(make) {
+  let c = coList().find(x => x.field);
+  if (!c && make && job) {
+    const n = coList().reduce((m, x) => Math.max(m, x.n), 0) + 1;
+    c = { id: uid(), n, name: "Field changes", date: trkToday(), desc: "Changes made in the field: items moved and items added.", field: true, items: {} };
+    coList().push(c);
+  }
+  if (c) c.items = c.items || {};
+  return c || null;
+}
+const fcoPick = (c, it) => c && c.items[it.key] || {};
+const fcoAmt = (c, it) => { const s = fcoPick(c, it); return s.amt != null && s.amt !== "" ? +s.amt : it.dflt; };
+const fcoTotal = c => fcoItems().reduce((t, it) => t + (fcoPick(c, it).c === "charge" ? fcoAmt(c, it) : 0), 0);
+// the PM's to-do: field changes nobody has marked Charge or No charge yet
+const fcoOpen = () => { const c = fcoOf(false); return fcoItems().filter(it => !fcoPick(c, it).c).length; };
+function fcoBadge() {
+  const b = $("coBtn"); if (!b) return;
+  let n = b.querySelector("b.fco-n");
+  const left = job && !fieldMode && can("cost") ? fcoOpen() : 0, all = job ? fcoItems().length : 0;
+  if (left) { if (!n) { n = document.createElement("b"); n.className = "fco-n"; b.appendChild(n); } n.textContent = left; b.title = `${left} field change${left === 1 ? "" : "s"} (moved or added) to mark Charge or No charge`; }
+  else if (n) { n.remove(); b.title = "Change orders: count and price extra work apart from the base bid"; }
+  const fb = $("coFieldBtn"); if (fb) { fb.hidden = !all || fieldMode; fb.textContent = left ? `Field changes · ${left} to pick` : `Field changes (${all})`; }
+}
+// one line per kind of change on the proposal, in words, with no price
+function fcoLines(c) {
+  const g = new Map();
+  fcoItems().forEach(it => {
+    const s = fcoPick(c, it); if (!s.c) return;
+    const k = [it.act, it.kind, it.name, s.c].join("|"), o = g.get(k) || { ...it, free: s.c === "free", qty: 0, ftSum: 0 };
+    o.qty++; o.ftSum += it.ft || 0; g.set(k, o);
+  });
+  return [...g.values()].sort((a, b) => (a.act > b.act) - (a.act < b.act) || a.free - b.free).map(o => {
+    let t;
+    if (o.kind === "d") t = o.act === "add" ? `We are adding ${o.qty} ${o.name}` : `We are moving ${o.qty} ${o.name} to a new location`;
+    else if (o.act === "add") t = o.ftSum ? `We are adding ${o.ftSum.toLocaleString()} ft of ${o.name}` : `We are adding ${o.qty} run${o.qty === 1 ? "" : "s"} of ${o.name}`;
+    else t = `We are moving ${o.qty} run${o.qty === 1 ? "" : "s"} of ${o.name} to a new route`;
+    return { text: t, free: o.free };
+  });
+}
+function renderFco() {
+  const c = fcoOf(false), L = fcoItems(), pm = can("cost") && !fieldMode, t = $("fcoTbl");
+  const left = L.filter(it => !fcoPick(c, it).c).length;
+  $("fcoEmpty").hidden = !!L.length; $("fcoMake").disabled = !c || !L.length;
+  $("fcoSum").textContent = L.length ? `${L.length} change${L.length === 1 ? "" : "s"} from the field${left ? ` · ${left} not picked yet` : " · all picked"}` : "";
+  if (!L.length) { t.innerHTML = ""; return; }
+  const row = it => {
+    const s = fcoPick(c, it), on = v => s.c === v ? ' aria-pressed="true"' : ' aria-pressed="false"';
+    const what = it.kind === "r" && it.ft ? `${it.name} · ${it.ft.toLocaleString()} ft` : it.name;
+    return `<tr data-k="${esc(it.key)}" class="${s.c ? "fco-" + s.c : "fco-todo"}"><td><span class="fco-act ${it.act}">${it.act === "add" ? "Added" : "Moved"}</span></td><td>${esc(what)}</td><td>${esc(it.sheet)}</td>
+      <td class="hint">${esc(it.by || "Field")}${it.at ? " · " + esc(whenSaved(it.at)) : ""}</td>
+      <td class="n">${s.c === "free" ? `<span class="hint">No charge</span>` : `<input type="number" class="fco-amt" min="0" step="1" value="${s.amt != null && s.amt !== "" ? esc(s.amt) : ""}" placeholder="${it.dflt ? Math.round(it.dflt) : "0"}" aria-label="Price for ${esc(what)}"${pm ? "" : " disabled"}>`}</td>
+      <td><span class="fco-pick"><button class="btn sm" type="button" data-c="charge"${on("charge")}${pm ? "" : " disabled"}>Charge</button><button class="btn sm" type="button" data-c="free"${on("free")}${pm ? "" : " disabled"}>No charge</button></span></td></tr>`;
+  };
+  t.innerHTML = `<thead><tr><th>Change</th><th>Item</th><th>Where</th><th>By</th><th class="n">Price</th><th>Charge?</th></tr></thead><tbody>${L.map(row).join("")}</tbody>
+    <tfoot><tr><td colspan="4"><b>Total change order</b> <small class="hint">(only Charge items count; the proposal shows this total, no prices per item)</small></td><td class="n"><b>${fmt$(c ? fcoTotal(c) : 0)}</b></td><td></td></tr></tfoot>`;
+}
+function fcoShow() { if (!job) return toast("Open a job first."); renderFco(); $("fcoModal").hidden = false; if (teamOn && job && !fieldDirty) fieldLoad().then(() => { if (!$("fcoModal").hidden) renderFco(); }).catch(() => {}); }
+$("fcoTbl").addEventListener("click", e => {
+  const b = e.target.closest("[data-c]"), tr = e.target.closest("tr[data-k]"); if (!b || !tr) return;
+  if (!can("cost") || fieldMode) return toast("Only the office (PM) picks Charge or No charge.");
+  const c = fcoOf(true), s = c.items[tr.dataset.k] || {};
+  c.items[tr.dataset.k] = { ...s, c: s.c === b.dataset.c ? undefined : b.dataset.c };
+  touchJob(); renderFco(); fcoBadge();
+});
+$("fcoTbl").addEventListener("change", e => {
+  const inp = e.target.closest(".fco-amt"), tr = e.target.closest("tr[data-k]"); if (!inp || !tr) return;
+  const c = fcoOf(true), s = c.items[tr.dataset.k] || {}, v = inp.value.trim();
+  c.items[tr.dataset.k] = { ...s, c: s.c || "charge", amt: v === "" ? undefined : Math.max(0, +v || 0) };
+  touchJob(); renderFco(); fcoBadge();
+});
+$("fcoAll").onclick = () => {
+  if (!can("cost") || fieldMode) return toast("Only the office (PM) picks Charge or No charge.");
+  const c = fcoOf(true); let n = 0;
+  fcoItems().forEach(it => { if (!fcoPick(c, it).c) { c.items[it.key] = { ...(c.items[it.key] || {}), c: "charge" }; n++; } });
+  if (!n) return toast("Every field change is already picked.");
+  touchJob(); renderFco(); fcoBadge(); toast(`${n} marked Charge.`);
+};
+$("fcoClose").onclick = () => { $("fcoModal").hidden = true; };
+$("fcoModal").addEventListener("keydown", e => { if (e.key === "Escape") $("fcoModal").hidden = true; });
+$("coFieldBtn").onclick = () => { $("coModal").hidden = true; fcoShow(); };
+$("fcoMake").onclick = () => {
+  const c = fcoOf(false); if (!c) return toast("Pick Charge or No charge on the field changes first.");
+  if (!fcoLines(c).length) return toast("Pick Charge or No charge on the field changes first.");
+  const left = fcoOpen(); if (left) toast(`${left} change${left === 1 ? " isn't" : "s aren't"} picked yet and ${left === 1 ? "is" : "are"} left off the proposal.`);
+  saveProposal(fcoPdf);
+};
+// the field change order proposal: the same letterhead and acceptance as the regular proposal, each change in words, one total
+async function fcoPdf() {
+  const c = fcoOf(false), JsPDF = await loadJsPdf(), co = company(), j = job || { name: "Example job" }, lines = fcoLines(c), total = fcoTotal(c);
+  const doc = new JsPDF({ unit: "pt", format: "letter" }), W = 612, M = 54;
+  let y = M;
+  const need = hgt => { if (y + hgt > 792 - M) { doc.addPage("letter", "p"); y = M; } };
+  const text = (s, size = 10.5, style = "normal", x = M, w = W - 2 * M) => { doc.setFont("helvetica", style); doc.setFontSize(size); doc.splitTextToSize(String(s), w).forEach(ln => { need(size * 1.35); doc.text(ln, x, y); y += size * 1.35; }); };
+  const rule = () => { need(10); doc.setDrawColor(180); doc.line(M, y, W - M, y); y += 12; };
+  doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.text(co.name || "AJ Electrical", M, y); y += 16;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(90);
+  [co.address, [co.phone, co.email].filter(Boolean).join(" · "), co.license && `License # ${co.license}`].filter(Boolean).forEach(l => { doc.text(l, M, y); y += 12; });
+  doc.setTextColor(0); y += 8;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(16); doc.text(coLabel(c), M, y);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text(new Date((c.date || trkToday()) + "T12:00").toLocaleDateString(), W - M, y, { align: "right" }); y += 20;
+  rule();
+  [["Project", j.name], ["Customer", j.customer], ["Job address", j.address]].filter(r => r[1]).forEach(([kk, v]) => { doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(kk, M, y); doc.setFont("helvetica", "normal"); doc.text(String(v), M + 90, y); y += 15; });
+  y += 6;
+  if (c.desc) { text("Scope of work", 12, "bold"); text(c.desc); y += 6; }
+  text("Changes", 12, "bold");
+  lines.forEach(l => {
+    need(15); doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
+    doc.splitTextToSize(l.text, W - 2 * M - 110).forEach((ln, i) => { if (i) need(14); doc.text(ln, M + 10, y); if (!i && l.free) { doc.setFont("helvetica", "italic"); doc.text("No charge", W - M, y, { align: "right" }); doc.setFont("helvetica", "normal"); } y += 14; });
+    y += 1;
+  });
+  y += 6; rule();
+  need(24); doc.setFont("helvetica", "bold"); doc.setFontSize(13); doc.text("Total change order", M + 10, y + 4); doc.text("$" + Math.round(total).toLocaleString(), W - M, y + 4, { align: "right" }); y += 24;
+  need(110); y += 18; text("Acceptance", 12, "bold"); text("The changes and total above are accepted. AJ Electrical is authorized to do the work as described.", 10);
+  y += 26; doc.setDrawColor(0);
+  [["Signature", M], ["Date", W / 2 + 20]].forEach(([kk, x]) => { doc.line(x, y, x + (kk === "Date" ? 160 : 230), y); doc.setFontSize(9); doc.text(kk, x, y + 11); });
+  y += 34; [["Printed name", M], ["Title", W / 2 + 20]].forEach(([kk, x]) => { doc.line(x, y, x + (kk === "Title" ? 160 : 230), y); doc.setFontSize(9); doc.text(kk, x, y + 11); });
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(120); doc.text(`${co.name || "AJ Electrical"} · ${j.name} · page ${i} of ${n}`, W / 2, 792 - 14, { align: "center" }); doc.setTextColor(0); }
+  return new File([doc.output("blob")], `${safeName(j.name)} CO${c.n}.pdf`, { type: "application/pdf" });
 }
 /* The Order page: the supplier list, what the field added, and the quantity to order */
 function supLines() {
