@@ -979,6 +979,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 .ld-row2 .ld-note { flex: 1; } .ld-row2 .ld-note input { flex: 1; min-width: 160px; }
 .ld-mwrap { max-height: 58vh; }
 .ld-mtbl { width: 100%; }
+.ts-table tr.rs-lock td { background: var(--warn-soft); border: 1px solid var(--warn); padding: 8px 10px; }
 .ts-table.ld-mtbl input { padding: 4px 6px; font-size: 13px; }
 .ts-table.ld-mtbl input[type=number] { width: 96px; text-align: right; }
 .ts-table.ld-mtbl input.ld-parts { width: 100%; min-width: 260px; }
@@ -1520,7 +1521,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
       <ul class="adm-people" id="leadJobs"></ul>
     </section>
     <section id="leadMaster" hidden>
-      <p class="hint">The residential price list every estimate uses. Change the minutes, labor, material, sell price or the parts in an item, and every job prices from it the next time it's opened. Changing minutes figures the labor, and labor plus material makes the sell price. Orange boxes are changed from the starting sheet.</p>
+      <p class="hint">The residential price list every estimate uses. Change the minutes, labor, material, sell price or the parts in an item, and new estimates price from it. Jobs already bid keep their prices and show a <b>See price now</b> button. Changing minutes figures the labor, and labor plus material makes the sell price. Orange boxes are changed from the starting sheet.</p>
       <div class="ld-calbar"><input type="search" id="leadMSearch" placeholder="Find an item" aria-label="Find an item"><button class="btn sm" type="button" id="leadMDown">Download as a spreadsheet</button><label class="btn sm">Load a spreadsheet<input type="file" id="leadMFile" accept=".csv,text/csv" hidden></label><span class="hint" id="leadMInfo"></span></div>
       <div class="trk-wrap ld-mwrap"><table class="ts-table ld-mtbl" id="leadMTbl"></table></div>
     </section>
@@ -3237,9 +3238,9 @@ function resRows() {
     const counted = it.sym ? pages.reduce((n, pg) => n + qtyOn(pg, id), 0) : 0;
     const typed = rp.qty[it.id];
     const qty = typed != null && typed !== "" ? +typed : counted;
-    const price = rp.over[it.id] != null ? +rp.over[it.id] : it.price;
-    const lab = it.price ? it.labor * price / it.price : it.labor, mat = it.price ? it.material * price / it.price : it.material;
-    return { it, id, counted, typed: typed != null && typed !== "", qty, price, mins: it.mins * qty, labor: lab * qty, material: mat * qty, total: price * qty };
+    const v = resVal(it), price = rp.over[it.id] != null ? +rp.over[it.id] : v.price;
+    const lab = v.price ? v.labor * price / v.price : v.labor, mat = v.price ? v.material * price / v.price : v.material;
+    return { it, id, v, counted, typed: typed != null && typed !== "", qty, price, mins: v.mins * qty, labor: lab * qty, material: mat * qty, total: price * qty };
   });
 }
 function renderResPrice() {
@@ -3252,9 +3253,10 @@ function renderResPrice() {
   const row = r => `<tr data-res="${r.it.id}"><td><span class="rs-ic">${r.it.sym ? `<svg viewBox="-1.3 -1.3 2.6 2.6" class="rs-sym">${r.it.sym}</svg>` : ""}</span>${esc(r.it.name)}<small>${esc(r.it.notes || "")}</small></td>
     <td class="n"><input type="number" class="rs-q" min="0" step="1" data-q="${r.it.id}" value="${r.typed ? r.qty : ""}" placeholder="${r.counted}" aria-label="Quantity of ${esc(r.it.name)}"><span class="print-only">${r.qty}</span>${r.typed && r.it.sym ? `<small>counted ${r.counted}</small>` : ""}</td>
     <td class="n">${fmtH(r.mins / 60)}</td><td class="n">${fmtC(r.labor)}</td><td class="n">${fmtC(r.material)}</td>
-    <td class="n"><input type="number" class="rs-p${rp.over[r.it.id] != null ? " over" : ""}" min="0" step="0.01" data-p="${r.it.id}" value="${rp.over[r.it.id] != null ? rp.over[r.it.id] : ""}" placeholder="${r.it.price.toFixed(2)}" aria-label="Price each for ${esc(r.it.name)}"><span class="print-only">${fmtC(r.price)}</span></td>
+    <td class="n"><input type="number" class="rs-p${rp.over[r.it.id] != null ? " over" : ""}" min="0" step="0.01" data-p="${r.it.id}" value="${rp.over[r.it.id] != null ? rp.over[r.it.id] : ""}" placeholder="${r.v.price.toFixed(2)}" aria-label="Price each for ${esc(r.it.name)}"><span class="print-only">${fmtC(r.price)}</span></td>
     <td class="n"><b>${fmtC(r.total)}</b></td></tr>`;
   let h = `<thead><tr><th>Item</th><th class="n">Qty</th><th class="n">Man hours</th><th class="n">Labor</th><th class="n">Material</th><th class="n">Price each</th><th class="n">Total</th></tr></thead><tbody>`;
+  h += resLockBanner();
   let sec = null;
   used.forEach(r => { if (r.it.cat !== sec) { sec = r.it.cat; h += `<tr class="sec"><td colspan="7">${esc(sec)}</td></tr>`; } h += row(r); });
   if (!used.length) h += `<tr><td colspan="7" class="hint">Nothing priced yet. Place residential symbols on your sheets, or type a quantity below.</td></tr>`;
@@ -3267,7 +3269,7 @@ function renderResPrice() {
   if (extra) h += `<tr class="bid-tot"><td>Other lines</td><td colspan="5"></td><td class="n"><b>${fmtC(extra)}</b></td></tr>`;
   h += `<tr class="bid-tot"><td>Discount <span class="no-print"><input type="number" id="rsDisc" class="ts-pct" min="0" max="100" step="0.5" value="${disc || ""}" placeholder="0" aria-label="Discount percent"></span><span class="print-only">${disc}</span>%</td><td colspan="5"></td><td class="n"><b>${disc ? "−" + fmtC(sub * disc / 100) : fmtC(0)}</b></td></tr>
     <tr class="bid-tot grand"><td>Residential bid total</td><td colspan="5"></td><td class="n"><b>${fmtC(grand)}</b></td></tr>`;
-  if (unused.length) h += `<tr class="sec no-print"><td colspan="7"><details><summary>Add an item that isn't on the drawings (${unused.length} more on the price list)</summary><div class="rs-more">${unused.map(r => `<button class="btn sm" type="button" data-radd="${r.it.id}">${esc(r.it.name)} · ${fmtC(r.it.price)}</button>`).join(" ")}</div></details></td></tr>`;
+  if (unused.length) h += `<tr class="sec no-print"><td colspan="7"><details><summary>Add an item that isn't on the drawings (${unused.length} more on the price list)</summary><div class="rs-more">${unused.map(r => `<button class="btn sm" type="button" data-radd="${r.it.id}">${esc(r.it.name)} · ${fmtC(r.v.price)}</button>`).join(" ")}</div></details></td></tr>`;
   h += `</tbody>`;
   t.innerHTML = h;
   const save = () => { if (job) saveJob(job); renderTakeoff(); };
@@ -3278,6 +3280,7 @@ function renderResPrice() {
   t.querySelectorAll("[data-radd]").forEach(b => b.onclick = () => { rp.qty[b.dataset.radd] = 1; save(); });
   $("rsAddLine").onclick = () => { rp.extra.push({ desc: "", qty: 1, price: 0 }); save(); const all = t.querySelectorAll("input.rs-ln"); if (all.length) all[all.length - 1].focus(); };
   $("rsDisc").onchange = e => { rp.disc = Math.max(0, Math.min(100, +e.target.value || 0)); save(); };
+  resLockBind(t, save);
 }
 function resPriceText() {
   const rows = resRows().filter(r => r.qty), rp = resPriceOf(), out = [`Residential price: ${job ? job.name : "Example job"}`, `AJ Electrical · ${new Date().toLocaleDateString()}`, ""];
@@ -10828,9 +10831,9 @@ function drawGhost(g0, p, ns, ptsAttr) {
    each change in words, free ones say No charge, and only the total has a price. Items crossed out as not wanted stay off it. */
 const fcoRes = t => { const d = devInfo(t); return d && (d.res || (DEVICES[d.base] || {}).res) || null; };
 function fcoPrice(t, move) {
-  const it = fcoRes(t); if (!it || !it.price) return 0;
-  const o = resPriceOf().over[it.id], price = o != null ? +o : it.price;
-  return Math.round((move ? it.labor * price / it.price : price) * 100) / 100;
+  const it = fcoRes(t), v = it && resVal(it); if (!v || !v.price) return 0;
+  const o = resPriceOf().over[it.id], price = o != null ? +o : v.price;
+  return Math.round((move ? v.labor * price / v.price : price) * 100) / 100;
 }
 const fcoRunName = r => { const w = wireOf(r.typeId); return w ? (isCable(w) ? cableName(w) : wireShort(w)) : "wire"; };
 function fcoItems() {
@@ -11211,7 +11214,8 @@ async function loadExamples() {
    is what every estimate prices from (api/leader, team/admin/resmaster-*), kept on each device for working offline. */
 const RES_BASE = {}; RES_ITEMS.forEach(it => { RES_BASE[it.id] = { price: it.price, labor: it.labor, material: it.material, mins: it.mins, notes: it.notes }; });
 const RM_KEYS = ["mins", "labor", "material", "price", "notes"];
-let resMaster = {}, resMasterInfo = { by: "", saved: null };
+let resMaster = {}, resMasterInfo = { by: "", saved: null }, resMasterReady = false;
+const rmHas = id => !!resMaster[id] && RM_KEYS.some(k => resMaster[id][k] != null);
 // the job's man hours: the Residential price sheet's, or the Bid sheet's when nothing is priced there yet
 function jobBidHours() {
   try {
@@ -11235,18 +11239,18 @@ function resMasterApply(items) {
   });
   if (typeof job !== "undefined" && job && !$("takeoffModal").hidden && tsView === "res") renderTakeoff();
 }
-try { const c = JSON.parse(lsGet("aj-res-master") || "null"); if (c && c.items) { resMasterInfo = c; resMasterApply(c.items); } } catch (e) {}
+try { const c = JSON.parse(lsGet("aj-res-master") || "null"); if (c && c.items) { resMasterInfo = c; resMasterApply(c.items); resMasterReady = true; } } catch (e) {}
 async function resMasterPull() {
   if (!teamOn || teamOffline) return;
   try {
     const r = await fetch("/api/leader?what=master", { cache: "no-store" });
     if (!r.ok) return;
-    const o = await r.json();
+    const o = await r.json(); resMasterReady = true;
     if (JSON.stringify(o.items || {}) === JSON.stringify(resMaster)) { resMasterInfo = o; return; }
     resMasterInfo = o; lsSet("aj-res-master", JSON.stringify(o)); resMasterApply(o.items);
   } catch (e) {}
 }
-teamReady.then(on => { leadShow(); if (on) { resMasterPull(); setInterval(resMasterPull, 10 * 60000); } });
+teamReady.then(on => { leadShow(); if (!on || teamOffline) resMasterReady = true; if (on) { resMasterPull(); setInterval(resMasterPull, 10 * 60000); } });
 function leadShow() { $("leadBtn").hidden = !teamOn || !(isAdmin || (myPerms && myPerms.has("leader"))); }
 $("leadBtn").onclick = () => leadOpen();
 $("leadClose").onclick = () => { $("leadModal").hidden = true; };
@@ -11424,7 +11428,7 @@ async function masterSave() {
   } catch (e) { leadSay(e.message, true); }
 }
 function masterInfo() {
-  const n = Object.keys(resMaster).length;
+  const n = Object.keys(resMaster).filter(rmHas).length;
   $("leadMInfo").textContent = (n ? `${n} item${n === 1 ? "" : "s"} changed from the starting price sheet.` : "Nothing changed from the starting price sheet yet.") + (resMasterInfo && resMasterInfo.saved ? ` Last saved ${whenSaved(resMasterInfo.saved)}${resMasterInfo.by ? " by " + resMasterInfo.by : ""}.` : "");
 }
 function masterDraw() {
@@ -11433,7 +11437,7 @@ function masterDraw() {
   RES_ITEMS.filter(it => !q || (it.name + " " + it.cat + " " + it.notes).toLowerCase().includes(q)).forEach(it => {
     if (it.cat !== sec) { sec = it.cat; h += `<tr class="sec"><td colspan="7">${escH(sec)}</td></tr>`; }
     const b = RES_BASE[it.id], cell = (k, step) => `<td class="n"><input type="number" min="0" step="${step}" data-m="${k}" class="${rmChanged(it.id, k) ? "over" : ""}" value="${+(+it[k]).toFixed(2)}" title="Starting sheet: ${b[k]}" aria-label="${escH(it.name)} ${k}"></td>`;
-    const any = !!resMaster[it.id];
+    const any = rmHas(it.id);
     h += `<tr data-id="${it.id}"><td><span class="rs-ic">${it.sym ? `<svg viewBox="-1.3 -1.3 2.6 2.6" class="rs-sym">${it.sym}</svg>` : ""}</span>${escH(it.name)}</td>
       ${cell("mins", "0.01")}${cell("labor", "0.01")}${cell("material", "0.01")}${cell("price", "0.01")}
       <td><input data-m="notes" class="ld-parts${rmChanged(it.id, "notes") ? " over" : ""}" value="${escH(it.notes || "")}" maxlength="300" title="Starting sheet: ${escH(b.notes || "")}" aria-label="${escH(it.name)} parts"></td>
@@ -11495,5 +11499,54 @@ $("leadMFile").onchange = async e => {
   masterNote = `${n} item${n === 1 ? "" : "s"} changed from the spreadsheet${miss.length ? `. Not on the price list, skipped: ${miss.slice(0, 5).join(", ")}${miss.length > 5 ? "…" : ""}` : ""}.`;
   leadSay(masterNote, !n);
 };
+
+/* Bid prices stay put (Jonathan 2026-11-23: lock each bid to the prices it was bid with, and "it should say see price now
+   and then it unlocks it"). Each job keeps job.resLock = { at, items: { id: [price, labor, material, mins] } }: the master
+   parts sheet's prices on the day the job was last saved before the lock existed (from each item's change history), or
+   today's for a new job. When the master sheet has changed since, the Residential price tab says so, and "See price now"
+   moves the job to today's prices (the old ones stay in job.resLockPrev, so "Back to the bid prices" can undo it). */
+const RL_F = ["price", "labor", "material", "mins"];
+function resPricesAt(t) {
+  const out = {};
+  RES_ITEMS.forEach(it => {
+    const b = RES_BASE[it.id], h = ((resMaster[it.id] || {}).hist || []).filter(x => !t || x.at <= t).pop();
+    let v = h ? RL_F.map(k => h[k] != null ? h[k] : b[k]) : RL_F.map(k => b[k]);
+    if (!t) v = RL_F.map(k => it[k]);
+    out[it.id] = v;
+  });
+  return out;
+}
+function resLockOf() {
+  if (!job) return null;
+  if (!job.resLock || !job.resLock.items) {
+    if (!resMasterReady) return null; // wait for the master sheet's history before locking an older job
+    const t = job.updated && job.created && job.updated > job.created ? job.updated : null; job.resLock = { at: t || new Date().toISOString(), items: resPricesAt(t) }; }
+  return job.resLock;
+}
+function resVal(it) {
+  const l = resLockOf(), v = l && l.items[it.id];
+  return v ? { price: v[0], labor: v[1], material: v[2], mins: v[3] } : { price: it.price, labor: it.labor, material: it.material, mins: it.mins };
+}
+// the items on this job whose master price has moved since the lock
+function resLockDiff() {
+  const l = resLockOf(); if (!l) return [];
+  const rp = resPriceOf();
+  return resRows().filter(r => r.qty && rp.over[r.it.id] == null && l.items[r.it.id] && Math.abs(l.items[r.it.id][0] - r.it.price) > .004);
+}
+function resLockBanner() {
+  const l = resLockOf(); if (!l) return "";
+  const d = resLockDiff(), when = new Date(l.at).toLocaleDateString();
+  if (d.length) {
+    const now = d.reduce((t, r) => t + r.qty * r.it.price, 0), then = d.reduce((t, r) => t + r.qty * r.v.price, 0);
+    return `<tr class="rs-lock no-print"><td colspan="7">🔒 <b>Locked at the prices this job was bid with (${esc(when)}).</b> The master parts sheet has changed ${d.length} item${d.length === 1 ? "" : "s"} on this job since (${now >= then ? "+" : "−"}${fmtC(Math.abs(now - then))}). <button class="btn sm primary" type="button" id="rsLockNow">See price now</button></td></tr>`;
+  }
+  if (job.resLockPrev) return `<tr class="rs-lock no-print"><td colspan="7">Showing today's master prices (since ${esc(when)}). <button class="btn sm" type="button" id="rsLockBack">Back to the bid prices</button></td></tr>`;
+  return "";
+}
+function resLockBind(t, save) {
+  const now = t.querySelector("#rsLockNow"), back = t.querySelector("#rsLockBack");
+  if (now) now.onclick = () => { job.resLockPrev = job.resLock; job.resLock = { at: new Date().toISOString(), items: resPricesAt(null) }; save(); toast("This job is on today's prices now."); };
+  if (back) back.onclick = () => { job.resLock = job.resLockPrev; delete job.resLockPrev; save(); toast("Back to the prices this job was bid with."); };
+}
 </script>
 </body></html>

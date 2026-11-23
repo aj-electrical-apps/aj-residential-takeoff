@@ -58,8 +58,11 @@ export async function POST(request) {
     }
     if (b.op === "master") {
       const m = await loadMaster(), items = { ...((m.data && m.data.items) || {}) };
-      Object.entries(b.set || {}).forEach(([id, o]) => { if (!/^[\w-]{1,40}$/.test(id)) return; const c = cleanItem(o); if (c) items[id] = c; else delete items[id]; });
-      (Array.isArray(b.del) ? b.del : []).forEach(id => { delete items[String(id)]; });
+      // each item keeps its history (hist: [{ at, ...values }], {} = back to the starting sheet), so a job can be
+      // locked at the prices of the day it was last saved (the job's resLock in the app)
+      const hist = id => ((items[id] && items[id].hist) || []).slice(-19);
+      Object.entries(b.set || {}).forEach(([id, o]) => { if (!/^[\w-]{1,40}$/.test(id)) return; const c = cleanItem(o); items[id] = c ? { ...c, hist: [...hist(id), { at, ...c }] } : { hist: [...hist(id), { at }] }; });
+      (Array.isArray(b.del) ? b.del : []).forEach(id => { id = String(id); if (/^[\w-]{1,40}$/.test(id) && items[id]) items[id] = { hist: [...hist(id), { at }] }; });
       await saveMaster(items, by);
       return Response.json({ items, by, saved: at }, { headers: H });
     }
