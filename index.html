@@ -374,6 +374,9 @@ html.look-new body { font-family: var(--font-ui); }
 .tbx details.g-done > summary::after { content: "✓"; color: #2f9e44; font-weight: 700; margin-left: 6px; }
 .tbx details.g-done > summary .gcount { margin-left: auto; }
 .wl-btn .wire-swatch { margin: 0 2px; }
+.wl-circ { display: flex; align-items: center; gap: 6px; margin: 4px 4px 2px; font-size: 12.5px; color: var(--muted); }
+.wl-circ input { width: 64px; padding: 4px 6px; font: inherit; color: var(--text, inherit); }
+.wl-circ small { font-size: 11px; }
 .wl-sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 6px 4px 2px; }
 .wire-sel { width: 100%; height: 40px; margin: 0 0 2px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; font-weight: 600; }
 .wire-swatch.circ { height: 4px; border-top: 0; border-radius: 3px; box-shadow: 0 0 0 1.5px #212529; }
@@ -1832,6 +1835,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
     <h2 id="wireTitle">New run type</h2>
     <p class="hint">Pick the conduit and the wire in it. Every run you draw with this type adds to its totals.</p>
     <div class="opt"><label for="wLabel">Label</label><input type="text" id="wLabel" placeholder="e.g. Feeder to LP-1, or Parking lot lights"></div>
+    <div class="opt" id="wCircRow" hidden><label for="wCirc">Circuit number</label><input type="number" id="wCirc" min="1" max="999" step="1" inputmode="numeric"><small class="hint">Give two wire types the same number to put them on one circuit.</small></div>
     <div class="opt"><label for="wKind">What is this run</label><select id="wKind"><option value="wire">Conduit with wire</option><option value="pull">Conduit with pull string</option><option value="ug">Conduit only, underground</option><option value="jhook">J-hook run (low voltage)</option><option value="ditch">Open and close ditch only (no conduit)</option></select></div>
     <div class="opt jh-hide"><label for="wFor">What it's for</label><select id="wFor"><option value="">Pick one to fill in sizes (optional)</option><option>Primary</option><option>Secondary</option><option>Subfeed</option><option>HVAC</option><option>Lighting</option><option>Signage</option><option>Pole lights</option><option>Receptacles</option><option>Hot box</option></select></div>
     <div class="opt jh-only"><label for="wHook">J-hook every (feet)</label><input type="number" id="wHook" min="1" max="20" step="0.5" inputmode="decimal"></div>
@@ -3284,6 +3288,14 @@ function buildResToolbox(box) {
   const gc = document.createElement("span"); gc.className = "gcount wcount"; sum.appendChild(gc);
   det.appendChild(sum);
   const wrap = document.createElement("div"); wrap.className = "tbx-items";
+  // Circuit # (Jonathan 2026-11-23): type a number to put the next wire on that circuit, e.g. 12/2 and 12/3 both on circuit 2
+  const cr = document.createElement("label"); cr.className = "wl-circ";
+  cr.title = "Leave blank for the next new circuit number. Type a number to put the next wire you pick on that circuit, even a different wire type.";
+  const ci = document.createElement("input"); ci.type = "number"; ci.id = "wlCirc"; ci.min = 1; ci.max = 999; ci.step = 1; ci.inputMode = "numeric";
+  ci.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); ci.blur(); } };
+  const ch = document.createElement("small"); ch.textContent = "blank = next number";
+  cr.append("Circuit #", ci, ch); wrap.appendChild(cr);
+  det.addEventListener("toggle", () => { if (det.open) wlCircHint(); });
   let grp = "";
   WIRE_LIST.forEach(it => {
     if (it.grp !== grp) { grp = it.grp; const h = document.createElement("div"); h.className = "wl-sub"; h.textContent = grp; wrap.appendChild(h); }
@@ -7387,7 +7399,11 @@ function wireSpec(w) {
 const wireTotal = w => isUG(w) || isJH(w) || isPull(w) || isDitch(w) ? 0 : ((w.count || 0) + (w.ground ? 1 : 0)) * (w.sets || 1);
 const pipeRuns = w => isPull(w) ? w.runs || 1 : w.sets || 1; // each parallel set is its own conduit
 function renderWires() {
-  const ul = $("wireList"), list = wiresList();
+  const ul = $("wireList"), all = wiresList();
+  // circuits show in number order (a circuit number can be typed by hand); other run types keep their places
+  const cs = all.filter(isCirc).sort((a, b) => a.circ - b.circ); let ci = 0;
+  const list = all.map(w => isCirc(w) ? cs[ci++] : w);
+  wlCircHint();
   ul.replaceChildren();
   $("wiresEmpty").hidden = list.length > 0;
   const lfOf = id => pages.reduce((t, pg) => t + (pg.ftPerPx ? pg.runs.filter(r => r.typeId === id && inScope(r)).reduce((a, r) => a + runPx(pg, r) * pg.ftPerPx, 0) : 0), 0);
@@ -7560,6 +7576,7 @@ function openWire(id) {
   $("wColor").value = w.color || PALETTE[(list.length + 3) % PALETTE.length];
   $("wLabel").value = w.label || ""; $("wKind").value = ["ug", "jhook", "pull", "ditch"].includes(w.kind) ? w.kind : "wire"; $("wHook").value = w.interval || 5; $("wDepth").value = String(w.depth || 24); $("wFill").value = w.backfill || "None"; $("wWidth").value = String(w.width || 30); $("wRuns").value = w.runs || 1; $("wFillDepth").value = w.fillDepth || "full"; $("wSpacer").value = String(w.spacer || 0); $("wTrench").checked = !!w.trench; $("wFor").value = w.for || ""; if (isPull(w)) $("wKind").value = "pull";
   if (isUG(w)) { $("wCount").value = 3; $("wGauge").value = "12"; $("wIns").value = "STR"; }
+  $("wCircRow").hidden = !isCirc(editingWire); $("wCirc").value = isCirc(editingWire) ? editingWire.circ : "";
   $("wireDelete").hidden = !editingWire;
   $("wireSave").textContent = editingWire ? "Save" : "Save and draw";
   wirePreview();
@@ -7567,14 +7584,19 @@ function openWire(id) {
 }
 $("addWireBtn").onclick = () => openWire(null);
 // Wire dropdown: every pick starts a new circuit (Jonathan 2026-11-22); click a circuit in the list to add more to it
+function nextCirc() { return wiresList().reduce((m, w) => Math.max(m, w.circ || 0), 0) + 1; }
+function circNo(v) { const n = Math.round(+v); return v !== "" && n >= 1 && n <= 999 ? n : null; }
+function wlCircHint() { const ci = $("wlCirc"); if (ci) ci.placeholder = String(nextCirc()); }
 function newCircuit(key) {
   const it = WIRE_LIST.find(x => x.key === key); if (!it || !pages.length) return;
-  const list = wiresList(), n = list.reduce((m, w) => Math.max(m, w.circ || 0), 0) + 1;
+  // a typed Circuit # puts this wire on that circuit (another wire type can share it); blank = next new number
+  const ci = $("wlCirc"), list = wiresList(), n = circNo(ci && ci.value) || nextCirc();
+  if (ci) ci.value = "";
   const w = { id: uid(), label: "", ...structuredClone(it.w), color: it.color, preset: it.key, circ: n };
   list.push(w); if (job) { job.updated = new Date().toISOString(); saveJob(job); }
   renderWires(); renderRuns(); drawOverlay(); if (window.guideReady) guideShow(false);
   if (tool === "run") { runType = null; contRun = null; draft = []; }
-  startRunType(w.id);
+  startRunType(w.id); wlCircHint();
 }
 /* Start new estimate (Jonathan 2026-11-22): walk the plans one category at a time so nothing gets missed.
    Saved on the job (job.guide = { at, st: { step key: "done" | "skip" } }), so it picks up where you left off. */
@@ -7589,7 +7611,7 @@ const GUIDE = [
   { cat: "Water heaters", tip: "Water heater and tankless feeds." },
   { cat: "HVAC", tip: "HVAC feeds and disconnects." },
   { cat: "Safety", name: "Smoke detectors", tip: "Smoke and CO detectors in every bedroom, hall and level." },
-  { wire: true, name: "Wire circuits", tip: "Pick a wire under Wire to start a circuit, then click along its path. Each pick is a new circuit." },
+  { wire: true, name: "Wire circuits", tip: "Pick a wire under Wire to start a circuit, then click along its path. Each pick is a new circuit, unless you type a Circuit # to share one." },
   { runs: true, name: "Conduit and underground", tip: "Use + Add run for conduit, service runs and ditches, with depth." },
   { price: true, name: "Check the price sheet", tip: "Look over the residential price sheet and add anything that isn't on the plans." }
 ].map(g => ({ ...g, key: g.cat || g.name, name: g.name || g.cat }));
@@ -7661,6 +7683,7 @@ $("wireForm").addEventListener("submit", e => {
   const f = wireFields();
   let w = editingWire;
   if (w) Object.assign(w, f); else { w = { id: uid(), ...f }; wiresList().push(w); }
+  if (isCirc(w) && !$("wCircRow").hidden) w.circ = circNo($("wCirc").value) || w.circ;
   if (job) { job.updated = new Date().toISOString(); saveJob(job); }
   $("wireModal").hidden = true;
   renderWires(); renderRuns(); drawOverlay();
