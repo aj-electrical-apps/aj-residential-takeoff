@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 // GET -> { users, positions, perms, signin, appPw, fieldPw, backupKey }
 // POST { op: "add", name, role, password } | { op: "role", id, role } | { op: "rename", id, name } | { op: "reset", id, password }
 //      { op: "off", id, off } | { op: "remove", id } | { op: "positions", positions: [{ key, name, perms }] }
+//      { op: "pm", id, pm }  which PM's crew a foreman or electrician is on ("" = nobody's); a PM manages them in api/crew.js
 const H = { "Cache-Control": "no-store" };
 const bad = (error, status = 400) => Response.json({ error }, { status, headers: H });
 async function admin(request, users) {
@@ -66,10 +67,16 @@ export async function POST(request) {
     } else if (b.op === "reset") {
       if (!pwOk(b.password)) return bad("Use at least 6 characters for the password.");
       Object.assign(u, hashPassword(b.password), { v: (u.v || 0) + 1, changed: now });
+    } else if (b.op === "pm") {
+      const pm = b.pm ? users.find(x => x.id === b.pm && x !== u) : null;
+      if (b.pm && !pm) return bad("That PM isn't on the list any more.");
+      if (pm) u.pm = pm.id; else delete u.pm;
+      u.changed = now;
     } else if (b.op === "off") {
       Object.assign(u, { off: !!b.off, v: (u.v || 0) + 1, changed: now });
     } else if (b.op === "remove") {
       users = users.filter(x => x !== u);
+      users.forEach(x => { if (x.pm === u.id) delete x.pm; }); // their crew stays, with no PM until an admin picks one
     } else return bad("Unknown change.");
     if (!users.some(x => roleKey(x.role) === "admin" && !x.off) && (users.length || secret())) return bad("Keep at least one admin who is turned on, or nobody could get back in here.");
     await saveUsers(users, who.n, positions);
