@@ -16,6 +16,7 @@ function needs(path, method) {
   if (/^\/api\/subs/.test(path)) return ["subs", "admin"];
   if (/^\/api\/crew/.test(path)) return ["crew", "admin"];
   if (/^\/api\/bids/.test(path)) return ["tracker", "admin"];
+  if (path === "/api/leader" && write) return ["leader", "admin"];
   if (/^\/api\/(team-upload|share-upload)/.test(path) || (path === "/api/jobs" && write)) return ["edit"];
   if (path === "/api/settings" && write) return ["lists", "admin"];
   if (/^\/api\/field/.test(path) && write) return ["marks", "order", "scale", "edit"];

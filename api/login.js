@@ -1,4 +1,4 @@
-import { secret, makeSession, cookieLine, norm, same, permsFor, roleKey } from "../lib/session.js";
+import { secret, makeSession, cookieLine, norm, same, permsFor, personPerms, roleKey } from "../lib/session.js";
 import { loadTeam, saveUsers, hashPassword, checkPassword, loginOf } from "../lib/team-store.js";
 import { randomBytes } from "node:crypto";
 
@@ -40,11 +40,11 @@ export async function POST(request) {
       if (!u) { const first = on.filter(x => plain(x.name).split(" ")[0] === plain(name)); if (first.length === 1) u = first[0]; }
       const flip = t => t ? (t[0] === t[0].toUpperCase() ? t[0].toLowerCase() : t[0].toUpperCase()) + t.slice(1) : t;
       const tries = [...new Set([pw, pw.trim(), flip(pw.trim())])];
-      if (u && tries.some(t => checkPassword(u, t))) who = { n: u.name, r: roleKey(u.role), id: u.id, v: u.v || 0 };
+      if (u && tries.some(t => checkPassword(u, t))) who = { n: u.name, r: roleKey(u.role), id: u.id, v: u.v || 0, p: personPerms(positions, roleKey(u.role), u).join(",") };
       else if (norm(process.env.APP_PASSWORD) && same(norm(pw), norm(process.env.APP_PASSWORD))) who = { n: name || "Office", r: "admin", id: "app" };
       else if (norm(process.env.FIELD_PASSWORD) && same(norm(pw), norm(process.env.FIELD_PASSWORD))) who = { n: name || "Field", r: "super", id: "field" };
     }
-    if (who) who.p = permsFor(positions, who.r).join(",");
+    if (who && !who.p) who.p = permsFor(positions, who.r).join(",");
     if (!who) { await slow(); return Response.json({ error: "That name and password don't match. Check with the office if you've forgotten it." }, { status: 401, headers: H }); }
     return Response.json({ ok: true, name: who.n, role: who.r }, { headers: { ...H, "Set-Cookie": cookieLine(await makeSession(key, who)) } });
   } catch (e) { return Response.json({ error: e.message }, { status: 500, headers: H }); }

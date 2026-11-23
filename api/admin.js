@@ -7,6 +7,7 @@ import { randomBytes } from "node:crypto";
 // GET -> { users, positions, perms, signin, appPw, fieldPw, backupKey }
 // POST { op: "add", name, role, password } | { op: "role", id, role } | { op: "rename", id, name } | { op: "reset", id, password }
 //      { op: "off", id, off } | { op: "remove", id } | { op: "positions", positions: [{ key, name, perms }] }
+//      { op: "lead", id, lead }  the Leadership tab for this one person, on top of what their position has
 //      { op: "pm", id, pm }  which PM's crew a foreman or electrician is on ("" = nobody's); a PM manages them in api/crew.js
 const H = { "Cache-Control": "no-store" };
 const bad = (error, status = 400) => Response.json({ error }, { status, headers: H });
@@ -72,6 +73,9 @@ export async function POST(request) {
       if (b.pm && !pm) return bad("That PM isn't on the list any more.");
       if (pm) u.pm = pm.id; else delete u.pm;
       u.changed = now;
+    } else if (b.op === "lead") {
+      if (b.lead) u.lead = true; else delete u.lead;
+      u.changed = now; // api/role.js gives them the tab the next time the app checks
     } else if (b.op === "off") {
       Object.assign(u, { off: !!b.off, v: (u.v || 0) + 1, changed: now });
     } else if (b.op === "remove") {
