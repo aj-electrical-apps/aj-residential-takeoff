@@ -542,7 +542,8 @@ html.look-new body { font-family: var(--font-ui); }
 .mk-moved-ring { fill: none; stroke: #e8590c; stroke-dasharray: 3 2; pointer-events: none; }
 #coBtn b.fco-n { margin-left: 4px; background: #e8590c; color: #fff; border-radius: 9px; padding: 0 6px; font-size: 11px; }
 .fco-act { display: inline-block; padding: 1px 8px; border-radius: 9px; font-size: 12px; font-weight: 700; color: #fff; }
-.fco-act.move { background: #e8590c; } .fco-act.add { background: #1971c2; }
+.fco-act.move { background: #e8590c; } .fco-act.add { background: #1971c2; } .fco-act.gone { background: #e03131; }
+.fco-gone { margin-top: 12px; } .fco-gone h3 { font-size: 15px; margin: 8px 0 4px; }
 .fco-tbl tr.fco-todo td { background: #fff9db; }
 .fco-tbl tr.fco-free td:nth-child(2) { color: var(--muted, #868e96); }
 .fco-tbl .fco-amt { width: 90px; height: 30px; text-align: right; padding: 0 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--fg); }
@@ -950,7 +951,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v22<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v23<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <span class="va-box no-print" id="vaBox" hidden></span>
@@ -1740,6 +1741,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
     <p class="hint">Everything the field moved or added. Pick <b>Charge</b> or <b>No charge</b> for each one. The change order proposal says each change in words, shows No charge on the free ones, and only the total has a price.</p>
     <p class="hint" id="fcoSum" aria-live="polite"></p>
     <div class="trk-wrap"><table class="inst-tbl fco-tbl" id="fcoTbl"></table></div>
+    <div class="fco-gone" id="fcoGone" hidden></div>
     <p class="empty" id="fcoEmpty">Nothing moved or added in the field on this job yet.</p>
     <div class="actions"><button class="btn" type="button" id="fcoClose">Close</button><span class="spacer"></span><button class="btn" type="button" id="fcoAll">Charge all not picked</button><button class="btn primary" type="button" id="fcoMake">Change order proposal (PDF)</button></div>
   </div>
@@ -6779,6 +6781,8 @@ $("stage").addEventListener("wheel", hideMarkTip, { passive: true });
 function openCtx(e) {
   if (cmp) return;
   if (fieldMode) return openFieldCtx(e);
+  // the office can hold on a field add too: who added it, and Delete once the foreman marked it not wanted
+  if (showGhost && !symbolAt(e) && !runAt(e) && pages[current]) { const hit = fieldItemAt(pages[current], imgPoint(e)); if (hit && hit.ghost) return openFieldCtx(e); }
   ["ctxInst", "ctxDecl", "ctxMove"].forEach(id => $(id).hidden = true); $("ctxDelete").hidden = false;
   const v = symbolAt(e) || runAt(e);
   if (!v) { toast("Right-click right on a symbol to delete it or add more. Hold the right button and drag to move around."); return; }
@@ -6809,7 +6813,7 @@ $("sheet").addEventListener("pointerdown", e => {
 });
 $("sheet").addEventListener("pointermove", e => { if (pressAt && typeof pressT === "number" && Math.hypot(e.clientX - pressAt[0], e.clientY - pressAt[1]) > 10) { clearTimeout(pressT); pressT = null; } });
 ["pointerup", "pointercancel"].forEach(t => $("sheet").addEventListener(t, () => { if (typeof pressT === "number") { clearTimeout(pressT); pressT = null; } pressAt = null; }));
-$("ctxDelete").onclick = () => { closeCtx(); deleteSel(); };
+$("ctxDelete").onclick = () => { const fc = fieldCtx, p = pages[current]; closeCtx(); if (fc) { if (p) { fieldDelete(p, fc.kind, fc.v); toast("Deleted. It's off the drawing for everyone."); } return; } deleteSel(); };
 $("ctxMore").onclick = () => {
   const v = ctxTarget, fc = fieldCtx; closeCtx();
   if (fc) return fieldAddMore(fc);
@@ -10629,9 +10633,9 @@ function openFieldCtx(e) {
   const declined = declIs(key);
   $("ctxInst").hidden = ghost || declined || !can("install"); $("ctxInst").textContent = instIs(key) ? "Undo installed" : "✓ Mark installed";
   $("ctxDecl").hidden = !(can("install") || can("marks")); $("ctxDecl").textContent = declined ? "Put it back (customer wants it)" : "✗ Not wanted (customer)";
-  $("ctxMove").hidden = !can("marks");
-  $("ctxMore").hidden = !can("marks"); $("ctxMore").textContent = kind === "d" ? "Add another" : "Draw another run like it";
-  $("ctxDelete").hidden = true;
+  $("ctxMove").hidden = !can("marks") || !fieldMode;
+  $("ctxMore").hidden = !can("marks") || !fieldMode; $("ctxMore").textContent = kind === "d" ? "Add another" : "Draw another run like it";
+  $("ctxDelete").hidden = !(ghost && declined && canFieldDel()); $("ctxDelete").textContent = "Delete (not wanted)";
   const m = $("ctxMenu"); m.hidden = false;
   const mw = m.offsetWidth, mh = m.offsetHeight;
   m.style.left = Math.max(8, Math.min(e.clientX, innerWidth - mw - 8)) + "px";
@@ -10795,14 +10799,39 @@ const fcoSub = c => fcoItems().reduce((t, it) => t + (fcoPick(c, it).c === "char
 const fcoMk = c => { const sub = c ? fcoSub(c) : 0, pct = c && +c.mk || 0, flat = sub > 0 && c && +c.mkAmt || 0; return { sub, pct, flat, up: sub * pct / 100 + flat }; };
 const fcoTotal = c => { const m = fcoMk(c); return m.sub + m.up; };
 // the PM's to-do: field changes nobody has marked Charge or No charge yet
+/* Not wanted adds (Jonathan 2026-11-23): "PM needs to be able to delete an added item the foreman added if the foreman marks it
+   as not wanted". A field add the foreman crossed out shows under Not wanted in Field changes, and on the hold / right-click menu,
+   with Delete for the PM. Delete takes it out of the field layer for good (fieldLayer.gone), so it leaves the plan and the order. */
+function fcoGone() {
+  const L = [];
+  pages.forEach((p, i) => {
+    if (!p.ghost) return;
+    const sheet = `Sheet ${i + 1}${p.name ? " · " + p.name : ""}`;
+    p.ghost.devices.forEach(v => { const d = devInfo(v.t), r = declRec(instKeyD(p, v)); if (d && r && r.d) L.push({ p, kind: "d", v, name: nameOf(d), sheet, by: r.by, at: r.at }); });
+    p.ghost.runs.forEach(v => { const r = declRec(instKeyR(v)); if (r && r.d) L.push({ p, kind: "r", v, name: fcoRunName(v), sheet, by: r.by, at: r.at }); });
+  });
+  return L;
+}
+const canFieldDel = () => !fieldMode && can("cost");
+function fieldDelete(p, kind, v) {
+  if (!canFieldDel()) return toast("Only the office (PM) can delete what the field added.");
+  const g = ghostOf(p);
+  if (kind === "d") g.devices = g.devices.filter(x => x !== v); else g.runs = g.runs.filter(x => x !== v);
+  fieldLayer.gone = [...(fieldLayer.gone || []), v.id];
+  const key = kind === "d" ? instKeyD(p, v) : instKeyR(v), c = fcoOf(false);
+  if (fieldLayer.decl) delete fieldLayer.decl[key];
+  if (c && c.items[key]) { delete c.items[key]; touchJob(); }
+  fieldTouch(); drawOverlay(); renderCounts(); fcoBadge();
+  if (!$("fcoModal").hidden) renderFco();
+}
 const fcoOpen = () => { const c = fcoOf(false); return fcoItems().filter(it => !fcoPick(c, it).c).length; };
 function fcoBadge() {
   const b = $("coBtn"); if (!b) return;
   let n = b.querySelector("b.fco-n");
-  const left = job && !fieldMode && can("cost") ? fcoOpen() : 0, all = job ? fcoItems().length : 0;
-  if (left) { if (!n) { n = document.createElement("b"); n.className = "fco-n"; b.appendChild(n); } n.textContent = left; b.title = `${left} field change${left === 1 ? "" : "s"} (moved or added) to mark Charge or No charge`; }
+  const left = job && !fieldMode && can("cost") ? fcoOpen() + fcoGone().length : 0, all = job ? fcoItems().length : 0;
+  if (left) { if (!n) { n = document.createElement("b"); n.className = "fco-n"; b.appendChild(n); } n.textContent = left; b.title = `${left} field change${left === 1 ? "" : "s"} to look at: mark Charge or No charge, or delete adds the foreman marked not wanted`; }
   else if (n) { n.remove(); b.title = "Change orders: count and price extra work apart from the base bid"; }
-  const fb = $("coFieldBtn"); if (fb) { fb.hidden = !all || fieldMode; fb.textContent = left ? `Field changes · ${left} to pick` : `Field changes (${all})`; }
+  const fb = $("coFieldBtn"); if (fb) { fb.hidden = !(all || fcoGone().length) || fieldMode; fb.textContent = left ? `Field changes · ${left} to pick` : `Field changes (${all})`; }
 }
 // one line per kind of change on the proposal, in words, with no price
 function fcoLines(c) {
@@ -10822,8 +10851,16 @@ function fcoLines(c) {
 }
 function renderFco() {
   const c = fcoOf(false), L = fcoItems(), pm = can("cost") && !fieldMode, t = $("fcoTbl");
+  const G = fcoGone(), gb = $("fcoGone");
+  gb.hidden = !G.length;
+  gb.innerHTML = G.length ? `<h3>Not wanted <small class="hint">(added in the field, then crossed out by the foreman; not on the change order)</small></h3>
+    <table class="inst-tbl fco-tbl"><tbody>${G.map((g, i) => `<tr><td><span class="fco-act gone">Not wanted</span></td><td>${esc(g.kind === "r" ? g.name + " run" : g.name)}</td><td>${esc(g.sheet)}</td>
+      <td class="hint">${esc(g.by || "Field")}${g.at ? " · " + esc(whenSaved(g.at)) : ""}</td><td class="n">${pm ? `<button class="btn sm danger" type="button" data-gdel="${i}">Delete</button>` : ""}</td></tr>`).join("")}</tbody></table>
+    ${pm && G.length > 1 ? `<p><button class="btn sm danger" type="button" id="fcoGoneAll">Delete all ${G.length} not wanted</button></p>` : ""}` : "";
+  gb.querySelectorAll("[data-gdel]").forEach(b => b.onclick = () => { const g = G[+b.dataset.gdel]; fieldDelete(g.p, g.kind, g.v); toast(`Deleted ${g.name}.`); });
+  if ($("fcoGoneAll")) $("fcoGoneAll").onclick = () => { G.forEach(g => fieldDelete(g.p, g.kind, g.v)); toast(`Deleted ${G.length} not wanted items.`); };
   const left = L.filter(it => !fcoPick(c, it).c).length;
-  $("fcoEmpty").hidden = !!L.length; $("fcoMake").disabled = !c || !L.length;
+  $("fcoEmpty").hidden = !!(L.length || G.length); $("fcoMake").disabled = !c || !L.length;
   $("fcoSum").textContent = L.length ? `${L.length} change${L.length === 1 ? "" : "s"} from the field${left ? ` · ${left} not picked yet` : " · all picked"}` : "";
   if (!L.length) { t.innerHTML = ""; return; }
   const row = it => {
