@@ -16,7 +16,7 @@ function parse(b) {
   if (!m) return null;
   let d = {};
   try { d = JSON.parse(Buffer.from(m[2], "base64url").toString()); } catch (e) {}
-  return { id: m[1], name: d.n || "Untitled job", customer: d.c || "", address: d.a || "", bidDate: d.b || "", created: d.cr || "", updated: d.u || "", sheets: d.s || 0, by: d.by || "",
+  return { id: m[1], name: d.n || "Untitled job", customer: d.c || "", address: d.a || "", bidDate: d.b || "", created: d.cr || "", updated: d.u || "", sheets: d.s || 0, by: d.by || "", hours: d.h != null ? +d.h : undefined,
     deleted: d.d ? String(b.uploadedAt) : undefined, url: b.url, saved: new Date(b.uploadedAt).toISOString(), size: b.size };
 }
 async function files(prefix) {

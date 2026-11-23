@@ -1,4 +1,4 @@
-import { secret, readSession, basicWho, makeSession, cookieLine, clearCookie, whoIs, isPerson, norm, permsFor, roleKey } from "../lib/session.js";
+import { secret, readSession, basicWho, makeSession, cookieLine, clearCookie, whoIs, isPerson, norm, permsFor, personPerms, roleKey } from "../lib/session.js";
 import { loadTeam } from "../lib/team-store.js";
 import { realAdmin, asPerson, asPosition, viewList, VIEW_ID } from "../lib/view-as.js";
 
@@ -43,7 +43,7 @@ export async function GET(request) {
       who = { n: u.name, r: roleKey(u.role), id: u.id, v: u.v || 0 };
     }
     const lang = isPerson(who) ? (users.find(x => x.id === who.id) || {}).lang : null;
-    if (!real) who = { ...who, p: permsFor(positions, who.r).join(",") };
+    if (!real) who = { ...who, p: personPerms(positions, who.r, isPerson(who) && users.find(x => x.id === who.id)).join(",") };
     const admin = real || realAdmin(who, users);
     const view = admin ? { canViewAs: viewList(users, positions, admin), viewingAs: real ? { name: real.n, id: who.id === VIEW_ID ? "p:" + who.r : "u:" + who.id } : null } : {};
     return answer(who, true, positions, { "Set-Cookie": cookieLine(await makeSession(key, who)) }, lang, view);
