@@ -6896,7 +6896,12 @@ function runTipHtml(r) {
 }
 function markTipHtml(v) {
   if (v && v.pts) return runTipHtml(v);
-  const d = devInfo(v.t); if (!d || !TIP_GROUPS.includes(d.group)) return "";
+  const d = devInfo(v.t); if (!d) return "";
+  // any other symbol says what it is: its full name, then its category or spec line
+  if (!TIP_GROUPS.includes(d.group)) {
+    const sub = d.res && !d.custom ? d.res.cat : specOf(d);
+    return [`<b>${esc(nameOf(d))}</b>`, sub && sub.trim() && esc(sub)].filter(Boolean).join("<br>");
+  }
   const kind = d.kindName || d.kind || "Panel";
   const amps = [d.amps ? `${d.amps} amp` : "Amps not set", d.sVolts && `${d.sVolts}${/v$/i.test(d.sVolts) ? "" : " V"}`].filter(Boolean).join(" · ");
   const spec = [d.sMaker, d.sModel].filter(Boolean).join(" ");
@@ -6923,7 +6928,7 @@ $("sheet").addEventListener("pointermove", e => {
   showMarkTip(e, v && markTipHtml(v) ? v : runAt(e) || v);
 });
 $("sheet").addEventListener("pointerleave", e => { if (e.pointerType !== "touch") hideMarkTip(); });
-$("sheet").addEventListener("pointerdown", e => { if (e.pointerType !== "touch") hideMarkTip(); else { let v = !tool && !cmp && !hlMode ? symbolAt(e) : null; if (!(v && markTipHtml(v)) && !tool && !cmp && !hlMode) v = runAt(e) || v; if (v) { const at = [e.clientX, e.clientY]; const up = ev => { removeEventListener("pointerup", up); if (Math.hypot(ev.clientX - at[0], ev.clientY - at[1]) < 10) showMarkTip(ev, v, true); }; addEventListener("pointerup", up); } else hideMarkTip(); } });
+$("sheet").addEventListener("pointerdown", e => { if (e.pointerType !== "touch") { hideMarkTip(); const v = !tool && !cmp && !hlMode && e.button === 0 ? symbolAt(e) : null; if (v && markTipHtml(v)) { const at = [e.clientX, e.clientY]; const up = ev => { removeEventListener("pointerup", up); if (Math.hypot(ev.clientX - at[0], ev.clientY - at[1]) < 6) showMarkTip(ev, v, true); }; addEventListener("pointerup", up); } } else { let v = !tool && !cmp && !hlMode ? symbolAt(e) : null; if (!(v && markTipHtml(v)) && !tool && !cmp && !hlMode) v = runAt(e) || v; if (v) { const at = [e.clientX, e.clientY]; const up = ev => { removeEventListener("pointerup", up); if (Math.hypot(ev.clientX - at[0], ev.clientY - at[1]) < 10) showMarkTip(ev, v, true); }; addEventListener("pointerup", up); } else hideMarkTip(); } });
 $("stage").addEventListener("wheel", hideMarkTip, { passive: true });
 function openCtx(e) {
   if (cmp) return;
