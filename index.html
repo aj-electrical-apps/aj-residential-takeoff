@@ -870,6 +870,9 @@ tr.ex-off .ex-row span { color: var(--muted); text-decoration: line-through; }
 .ctx button.del:hover, .ctx button.del:focus-visible { background: var(--warn-soft); }
 .mark-tip { position: fixed; z-index: 31; pointer-events: none; background: var(--fg); color: var(--bg); padding: 6px 10px; border-radius: 6px; font-size: 13px; line-height: 1.35; max-width: 260px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 .mark-tip b { font-size: 14px; }
+.test-bar { display: inline-flex; gap: 6px; align-items: center; background: #c2410c; color: #fff; padding: 4px 6px 4px 4px; border-radius: 8px; font-size: 12px; font-weight: 700; flex: none; }
+html.is-test .toolbar { box-shadow: inset 0 5px 0 #f97316; }
+.test-bar b { letter-spacing: .08em; background: #fff; color: #c2410c; border-radius: 4px; padding: 1px 6px; }
 .ver-bar { position: fixed; z-index: 40; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; background: var(--panel); color: var(--fg); border: 2px solid var(--accent); border-radius: 8px; padding: 8px 12px; box-shadow: 0 6px 20px rgba(0,0,0,.3); max-width: calc(100% - 24px); font-weight: 600; }
 .toast { position: fixed; z-index: 30; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 8px 14px; border-radius: 6px; font-size: 14px; max-width: calc(100% - 32px); }
 .confirm { display: flex; gap: 6px; align-items: center; font-size: 13px; }
@@ -1005,7 +1008,7 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v28<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v29<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="leadBtn" type="button" hidden title="Leadership: job schedule and the master parts sheet">Leadership</button>
@@ -8826,7 +8829,7 @@ async function verCheck() {
   try {
     const t = await (await fetch("/", { cache: "no-store", credentials: "same-origin" })).text();
     const m = t.match(/Takeoff · v(\d+)/); const v = m ? +m[1] : 0;
-    if (v > APP_VER && v !== verNewest) { verNewest = v; $("verBar").hidden = false; $("verText").textContent = `A newer version of AJ Residential Takeoff (v${v}) is ready.`; }
+    if (v > APP_VER && v !== verNewest) { verNewest = v; $("verBar").hidden = false; $("verText").textContent = `A newer version of ${lsGet("aj-test-copy") === "1" ? "this TEST copy" : "AJ Residential Takeoff"} (v${v}) is ready.`; }
   } catch (e) {}
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && onOwnSite() && Date.now() - (verCheck.at || 0) > 60000) { verCheck.at = Date.now(); verCheck(); } });
@@ -9247,9 +9250,60 @@ const TEAM_KEYS = [["img", "blob"], ["thumb", "thumb"], ["prev", "prevBlob"], ["
 const wordsMark = w => w && w.length ? `${w.length}|${JSON.stringify(w[0]).slice(0, 60)}|${JSON.stringify(w[w.length - 1]).slice(0, 60)}` : "";
 const clockTime = t => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const whenSaved = t => { const d = new Date(t); return d.toDateString() === new Date().toDateString() ? clockTime(d) : d.toLocaleDateString([], { month: "short", day: "numeric" }) + " " + clockTime(d); };
+/* TEST copy (Jonathan 2026-11-24): every preview link is a test copy with its own TEST-only data and sign-ins.
+   The website says so at /api/env; it shows an orange bar, puts TEST in the tab name, and keeps its own offline copy
+   (sw.js?test=1). Remembered on the device so the bar shows offline too. The live app never shows any of it. */
+const testCopy = (async () => {
+  if (!onOwnSite()) return false;
+  let t = lsGet("aj-test-copy") === "1";
+  try { const r = await fetch("/api/env", { cache: "no-store" }); if (r.ok) { t = !!(await r.json()).test; lsSet("aj-test-copy", t ? "1" : null); } } catch (e) {}
+  if (t) {
+    document.title = "TEST · " + document.title;
+    const bar = document.createElement("div"); bar.id = "testBar"; bar.className = "test-bar";
+    bar.title = "This is a test copy (preview link). It has its own practice data and sign-ins. Nothing here touches the live app.";
+    bar.innerHTML = `<b>TEST COPY</b><button class="btn sm" type="button" id="testSeed" hidden>Add sample jobs</button>`;
+    const brand = document.querySelector(".toolbar .brand");
+    if (brand) brand.after(bar); else document.body.prepend(bar);
+    document.documentElement.classList.add("is-test");
+    bar.querySelector("#testSeed").onclick = testSampleJobs;
+  }
+  return t;
+})();
+// three made-up jobs with residential symbols on drawn sheets, saved online like any job (test copy only)
+async function testSampleJobs() {
+  if (!(await testCopy) || !teamOn || !can("edit")) return toast("Sample jobs can only be added on the test copy, signed in.");
+  const btn = $("testSeed"); btn.disabled = true;
+  const ids = ["sw", "sw3", "dim", "rcp", "gfci", "gfci_kit", "extgfci"].filter(id => DEVICES["R-" + id]);
+  const more = RES_ITEMS.filter(i => i.sym && !ids.includes(i.id)).slice(0, 6).map(i => i.id);
+  const list = [
+    { name: "SAMPLE - Smith Residence", customer: "Test Builder Co.", address: "101 Practice Ln", sheets: [["FIRST FLOOR POWER", "E-1", 11], ["FIRST FLOOR LIGHTING", "E-2", 12]] },
+    { name: "SAMPLE - Lake House Remodel", customer: "Sample Homes LLC", address: "22 Test Shore Dr", sheets: [["MAIN LEVEL", "E-1", 21]] },
+    { name: "SAMPLE - Garage Addition", customer: "Practice Contractor", address: "7 Example Rd", sheets: [["GARAGE PLAN", "E-1", 31]] }
+  ];
+  try {
+    for (const [n, s] of list.entries()) {
+      busy(`Adding sample job ${n + 1} of ${list.length}…`, n / list.length, s.name);
+      const j = newJobRecord({ name: s.name, customer: s.customer, address: s.address, bidDate: new Date(Date.now() + (n + 1) * 7 * 864e5).toISOString().slice(0, 10) });
+      await putJobLocal(j); jobs.push(j);
+      await openJob(j); // opening it saves the sample job before it online first
+      for (const [t, num, seed] of s.sheets) {
+        const b = await drawExample(t, num, seed);
+        pushPage(b, `${num} ${t[0]}${t.slice(1).toLowerCase()}`, 100);
+        const p = pages[pages.length - 1]; p.ftPerPx = 8 / 100; p.scaleLabel = SCALES[3][0];
+        const use = [...ids, ...more];
+        for (let k = 0; k < 18; k++) p.devices.push({ t: "R-" + use[(k + seed) % use.length], x: 220 + (k % 6) * 250, y: 260 + Math.floor(k / 6) * 330 });
+        await savePage(p, pages.length - 1);
+      }
+      current = 0; renderAll(); scheduleSync();
+    }
+    await runTeamSync();
+    busy(null, null); toast("Added 3 sample jobs. They're saved in the test copy only.");
+  } catch (e) { busy(null, null); toast("Couldn't add the sample jobs: " + e.message); }
+  btn.disabled = false;
+}
 const teamReady = (async () => {
   if (!onOwnSite() && !window.AJ_TEAM_TEST) return false;
-  if (onOwnSite() && "serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {}); // lets the app open without internet
+  if (onOwnSite() && "serviceWorker" in navigator) navigator.serviceWorker.register((await testCopy) ? "/sw.js?test=1" : "/sw.js").catch(() => {}); // lets the app open without internet
   if (onOwnSite()) setTimeout(verCheck, 60000);
   try {
     const r = await fetch("/api/jobs", { cache: "no-store" });
@@ -9270,6 +9324,7 @@ const teamReady = (async () => {
   if (teamOffline) { setDrive("bad", "No internet. Changes are kept on this device until WiFi is back"); return true; }
   if (job && !syncing) setDrive(job.teamUrl ? "ok" : "idle", job.teamUrl ? "Saved online" : "Saved on this computer");
   settingsPull();
+  if ((await testCopy) && $("testSeed")) $("testSeed").hidden = !can("edit");
   setTimeout(teamMoveUp, 2500);
   if (job) setTimeout(teamCheck); // the job opened from this device's copy before the app was online: get anyone's newer changes now
   return true;

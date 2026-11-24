@@ -57,6 +57,16 @@ summary { cursor: pointer; color: var(--fg); font-weight: 600; }
 const $ = id => document.getElementById(id);
 let setup = false;
 const next = (() => { const n = new URLSearchParams(location.search).get("next") || "/"; return /^\/(?!\/)/.test(n) ? n : "/"; })();
+// TEST copy (preview link): say so, and offer the test Admin sign-in
+fetch("/api/env", { cache: "no-store" }).then(r => r.json()).then(e => {
+  if (!e.test) return;
+  document.title = "TEST · " + document.title;
+  const b = document.createElement("div");
+  b.style.cssText = "background:#c2410c;color:#fff;text-align:center;padding:8px 12px;font-weight:600";
+  b.innerHTML = "TEST COPY · practice data only, nothing here touches the live app. Sign in as <u>Test Admin</u>.";
+  document.body.prepend(b); document.body.style.gridTemplateRows = "auto auto 1fr";
+  if (!$("name").value) $("name").value = "Test Admin";
+}).catch(() => {});
 fetch("/api/login", { cache: "no-store" }).then(r => r.json()).then(s => {
   if (!s.signin) { location.replace("/"); return; }
   if (s.setup) {
