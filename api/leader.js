@@ -27,6 +27,14 @@ function cleanItem(o) {
   const out = {};
   ["price", "labor", "material", "mins"].forEach(k => { const n = num(o[k], 1e6); if (n != null && o[k] !== "" && o[k] != null) out[k] = Math.round(n * 100) / 100; });
   if (typeof o.notes === "string") out.notes = txt(o.notes, 300);
+  // parts, one line each: { q, u: "ft" | "ea" | "$", n, c } (wire in feet, boxes and devices each, misc in dollars)
+  if (Array.isArray(o.parts)) out.parts = o.parts.slice(0, 20).map(p => {
+    if (!p || typeof p !== "object") return null;
+    const n = txt(p.n, 60).trim(); if (!n) return null;
+    const q = num(p.q, 1e5), c = num(p.c, 1e5), part = { q: q > 0 ? Math.round(q * 100) / 100 : 0, u: ["ft", "ea", "$"].includes(p.u) ? p.u : "ea", n };
+    if (c > 0 && part.u !== "$") part.c = Math.round(c * 100) / 100;
+    return part;
+  }).filter(Boolean);
   return Object.keys(out).length ? out : null;
 }
 const view = s => ({ by: (s.data && s.data.by) || "", saved: s.saved || null });
