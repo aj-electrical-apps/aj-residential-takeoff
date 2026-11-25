@@ -50,6 +50,7 @@ If the live app has a problem after a "dp":
 Rollback only changes the app's code. Jobs and logins live in the data store and are not changed by it.
 
 ## One-time setup (done 2026-11-24)
-- Live store and live `SESSION_SECRET`: Production only. `BLOB_READ_WRITE_TOKEN` / `BLOB_STORE_ID` for Preview come from the TEST-only store.
+- Live store keys (`BLOB_READ_WRITE_TOKEN`, `BLOB_STORE_ID`) and live `SESSION_SECRET`: Production only.
+- `aj-residential-takeoff-TEST-only` is connected to Preview only with the prefix `TEST_BLOB` (the live store's connection still holds the `BLOB_` names). Preview's `BLOB_STORE_ID` is set by hand to the same store id as `TEST_BLOB_STORE_ID`, and the safety check makes sure the two match.
 - `SESSION_SECRET` (Preview) starts with `TEST-only-`; `TEST_ADMIN_PASSWORD` (Preview) is the Test Admin password.
 - On an empty TEST store, `api/login.js` makes the **Test Admin** login by itself (Preview only).
