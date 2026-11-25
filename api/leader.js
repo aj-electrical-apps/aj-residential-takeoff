@@ -41,7 +41,16 @@ function cleanItem(o) {
 }
 const cleanGuys = list => (Array.isArray(list) ? list : []).slice(0, 300).map(g => ({ id: txt(g && g.id, 40).replace(/[^\w-]/g, ""), name: txt(g && g.name, 40).trim(), note: txt(g && g.note, 60).trim(), user: txt(g && g.user, 40).replace(/[^\w-]/g, "") || undefined }))
   .filter(g => g.id && g.name);
-const guysOf = s => (s.data && s.data.guys) || [];
+// Jonathan's crew to start with (2026-11-25). They're added once, the first time the crew list is shown on a copy of the
+// app (live or test), next to anyone already on it; after that the saved list is the only list, so edits and removals stick.
+const START_GUYS = ["Aiden Leonard", "Gabe Voss", "Hunter Hess", "Justin McGee", "Marty Coffman", "Timothy Page", "Terry Weaver", "Jackson Morgan"];
+const startId = n => "s-" + n.toLowerCase().replace(/[^a-z]+/g, "-");
+function guysOf(s) {
+  const saved = (s.data && Array.isArray(s.data.guys)) ? s.data.guys : [];
+  if (s.data && s.data.guysSeeded) return saved;
+  const have = new Set(saved.map(g => String(g.name).toLowerCase()));
+  return saved.concat(START_GUYS.filter(n => !have.has(n.toLowerCase())).map(n => ({ id: startId(n), name: n, note: "" })));
+}
 const view = s => ({ by: (s.data && s.data.by) || "", saved: s.saved || null });
 export async function GET(request) {
   try {
