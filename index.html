@@ -970,6 +970,16 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 .ld-cal .ld-bar.ph-trim { background: #7048e8; color: #fff; }
 .ld-cal .ld-bar.done { background: #adb5bd; color: #fff; opacity: .7; } /* gray, so a finished part never looks like rough-in */
 .ld-pct { display: block; color: var(--muted); font-size: 11px; }
+.ld-barmen { font-weight: 500; font-size: 11px; }
+.ld-menrow td { padding: 0 4px 8px; border-bottom: 1px solid var(--line); }
+.ld-men-picks { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; }
+.ld-men-picks button { border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 2px 10px; font: inherit; cursor: pointer; }
+.ld-men-picks button[aria-pressed="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+.ld-men-picks button.g-busy { border-color: var(--warn); }
+.ld-men-picks button.g-busy[aria-pressed="true"] { background: var(--warn); border-color: var(--warn); color: #fff; }
+.ld-guy { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ld-guy input { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+.ld-guy .g-nm { flex: 1; min-width: 160px; } .ld-guy .g-note { flex: 1; min-width: 140px; }
 .ld-cal .ld-men { font-weight: 700; text-align: center; border-top: 1px solid var(--line); padding-top: 3px; position: sticky; bottom: 0; background: var(--panel); }
 .ld-cal .ld-men.zero { color: var(--muted); }
 .ld-cal .ld-lbl.ld-men { text-align: left; }
@@ -1536,12 +1546,19 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
 <div class="modal" id="leadModal" hidden role="dialog" aria-modal="true" aria-labelledby="leadTitle">
   <div class="modal-card ld-card">
     <h2 id="leadTitle">Leadership</h2>
-    <div class="adm-tabs" role="tablist"><button type="button" role="tab" data-lt="sched" aria-selected="true">Schedule</button><button type="button" role="tab" data-lt="master" aria-selected="false">Master parts sheet</button></div>
+    <div class="adm-tabs" role="tablist"><button type="button" role="tab" data-lt="sched" aria-selected="true">Schedule</button><button type="button" role="tab" data-lt="crew" aria-selected="false">Crew list</button><button type="button" role="tab" data-lt="master" aria-selected="false">Master parts sheet</button></div>
     <section id="leadSched">
       <div class="ld-calbar"><button class="btn sm" type="button" id="leadPrev" aria-label="Earlier weeks">◀</button><button class="btn sm" type="button" id="leadToday">This week</button><button class="btn sm" type="button" id="leadNext" aria-label="Later weeks">▶</button><b id="leadWk"></b><span class="hint">Each bar shows the men on that crew. Click a bar to open its job.</span></div>
       <div class="trk-wrap ld-calwrap" id="leadCal"></div>
       <div class="ld-calbar"><input type="search" id="leadSearch" placeholder="Find a job" aria-label="Find a job"><span class="adm-picks" id="leadFilter"><button type="button" data-lf="all" aria-pressed="true">All jobs</button><button type="button" data-lf="on" aria-pressed="false">Scheduled</button><button type="button" data-lf="off" aria-pressed="false">Not scheduled</button></span></div>
       <ul class="adm-people" id="leadJobs"></ul>
+    </section>
+    <section id="leadCrew" hidden>
+      <p class="hint">Everyone you can put on a job. Add the guys here once, then pick them on each part of a job on the <b>Schedule</b> tab. Anyone already on the app's sign-in list can be added with one click.</p>
+      <ul class="adm-people" id="leadGuys"></ul>
+      <div class="ld-calbar"><button class="btn primary" type="button" id="leadGuyAdd">+ Add a guy</button></div>
+      <div class="adm-lbl" id="leadFromLbl">Add from the sign-in list</div>
+      <div class="ld-men-picks" id="leadFrom"></div>
     </section>
     <section id="leadMaster" hidden>
       <p class="hint">The residential price list every estimate uses. Change the minutes, labor, material, sell price or the parts in an item, and new estimates price from it. Jobs already bid keep their prices and show a <b>See price now</b> button. Changing minutes figures the labor, and labor plus material makes the sell price. Orange boxes are changed from the starting sheet.</p>
@@ -11435,7 +11452,8 @@ async function leadOpen() {
   if (teamOffline) return leadSay("No internet right now. The schedule and the master sheet open once WiFi is back.", true);
   try {
     const [o, jr] = await Promise.all([leadCall(), fetch("/api/jobs", { cache: "no-store" }).then(r => r.json())]);
-    leadSched = o.schedule.jobs || {};
+    leadSched = o.schedule.jobs || {}; leadGuys = o.schedule.guys || [];
+    fetch("/api/people", { cache: "no-store" }).then(r => r.json()).then(x => { leadPeople = x.people || []; if (leadTab === "crew") crewDraw(); }).catch(() => {});
     leadJobs = (jr.jobs || []).filter(j => !j.deleted);
     resMasterInfo = o.master; lsSet("aj-res-master", JSON.stringify(o.master)); resMasterApply(o.master.items);
     leadSay(""); leadDraw();
@@ -11443,8 +11461,8 @@ async function leadOpen() {
 }
 function leadDraw() {
   document.querySelectorAll("#leadModal [data-lt]").forEach(b => b.setAttribute("aria-selected", b.dataset.lt === leadTab));
-  $("leadSched").hidden = leadTab !== "sched"; $("leadMaster").hidden = leadTab !== "master";
-  if (leadTab === "sched") schedDraw(); else masterDraw();
+  $("leadSched").hidden = leadTab !== "sched"; $("leadMaster").hidden = leadTab !== "master"; $("leadCrew").hidden = leadTab !== "crew";
+  if (leadTab === "sched") schedDraw(); else if (leadTab === "crew") crewDraw(); else masterDraw();
 }
 /* ----- schedule ----- */
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -11524,7 +11542,8 @@ function schedDraw() {
           <td class="n"><input type="number" data-f="day" min="1" max="24" step="0.5" value="${p.day}" aria-label="Hours a day"></td>
           <td class="n"><b>${phDays(p) || "—"}</b></td><td>${escH(shortDay(phEnd(p)) || "—")}</td>
           <td><input type="checkbox" data-f="done"${p.done ? " checked" : ""} aria-label="Done"></td>
-          <td><button class="btn sm" type="button" data-del="${i}" aria-label="Remove phase">×</button></td></tr>`).join("") || `<tr><td colspan="9" class="hint">No phases yet. Load the bid's hours to start with one, or add phases.</td></tr>`}
+          <td><button class="btn sm" type="button" data-del="${i}" aria-label="Remove phase">×</button></td></tr>
+          <tr class="ld-menrow" data-mi="${i}"><td colspan="9">${guysPicker(j.id, i, p)}</td></tr>`).join("") || `<tr><td colspan="9" class="hint">No phases yet. Load the bid's hours to start with one, or add phases.</td></tr>`}
         </tbody></table></div>
         <div class="ld-row2"><label>Foreman / lead <input data-e="lead" value="${escH(e.lead || "")}" maxlength="40"></label>
           <label class="ld-note">Notes <input data-e="note" value="${escH(e.note || "")}" maxlength="500"></label></div></div>` : ""}`;
@@ -11537,6 +11556,12 @@ function schedDraw() {
     li.querySelectorAll("tr[data-i] [data-f]").forEach(inp => inp.onchange = () => {
       const en = leadSched[j.id] = schedEntry(j.id), p = en.phases[+inp.closest("tr").dataset.i], f = inp.dataset.f;
       p[f] = f === "done" ? inp.checked : f === "name" || f === "start" ? inp.value : Math.max(f === "hours" ? 0 : 1, +inp.value || 0);
+      schedSave(j.id); schedDraw();
+    });
+    li.querySelectorAll("[data-guy]").forEach(b => b.onclick = () => {
+      const en = leadSched[j.id] = schedEntry(j.id), p = en.phases[+b.closest("tr").dataset.mi], id = b.dataset.guy, men = p.men || (p.men = []);
+      const k = men.indexOf(id); if (k >= 0) men.splice(k, 1); else men.push(id);
+      if (men.length) p.crew = men.length; // the crew is the guys on it
       schedSave(j.id); schedDraw();
     });
     li.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { leadSched[j.id].phases.splice(+b.dataset.del, 1); schedSave(j.id); schedDraw(); });
@@ -11565,7 +11590,7 @@ function schedCal() {
   let h = `<div class="ld-cal" style="${cols}"><div class="ld-hd"></div>` + days.map((d, i) => `<div class="ld-hd${ymd(d) === today ? " today" : ""}${i % 5 === 0 ? " wk" : ""}" title="${escH(shortDay(d))}">${i % 5 === 0 ? `<b>${d.toLocaleDateString([], { month: "numeric", day: "numeric" })}</b>` : ""}${"MTWTF"[i % 5]}</div>`).join("");
   rows.forEach(r => {
     h += `<div class="ld-lbl" title="${escH(r.j.name)} · ${escH(r.p.name)}">${escH(r.j.no ? r.j.no + " " : "")}${escH(r.j.name)} <small>${escH(r.p.name)}</small></div>`;
-    h += `<div class="ld-bar ph-${splitKey(r.p.name)}${r.p.done ? " done" : ""}" style="grid-column:${r.a + 2} / ${r.b + 3}" data-job="${escH(r.j.id)}" title="${escH(r.p.name)}: ${fmtH(+r.p.hours || 0)} man hours, ${r.p.crew} men, ${phDays(r.p)} days">${r.p.crew}</div>`;
+    h += `<div class="ld-bar ph-${splitKey(r.p.name)}${r.p.done ? " done" : ""}" style="grid-column:${r.a + 2} / ${r.b + 3}" data-job="${escH(r.j.id)}" title="${escH(r.p.name)}: ${fmtH(+r.p.hours || 0)} man hours, ${r.p.crew} men, ${phDays(r.p)} days${(r.p.men || []).length ? " · " + escH(menNames(r.p).join(", ")) : ""}">${r.p.crew}${(r.p.men || []).length ? ` <span class="ld-barmen">${escH(menNames(r.p).map(n => n.split(" ")[0]).join(", "))}</span>` : ""}</div>`;
   });
   if (!rows.length) h += `<div class="ld-lbl hint" style="grid-column: 1 / -1">Nothing scheduled in these weeks. Open a job below, load its hours and pick a start date.</div>`;
   h += `<div class="ld-lbl ld-men">Men out</div>` + men.map(m => `<div class="ld-men${m ? "" : " zero"}">${m || ""}</div>`).join("") + `</div>`;
@@ -11751,5 +11776,78 @@ function resLockBind(t, save) {
   if (now) now.onclick = () => { job.resLockPrev = job.resLock; job.resLock = { at: new Date().toISOString(), items: resPricesAt(null) }; save(); toast("This job is on today's prices now."); };
   if (back) back.onclick = () => { job.resLock = job.resLockPrev; delete job.resLockPrev; save(); toast("Back to the prices this job was bid with."); };
 }
+
+/* Crew list and putting guys on each part of a job (Jonathan 2026-11-25: "i want to be able to put guys on each job ...
+   the master sheet should be able to add guys"). The list lives with the schedule (api/leader op "guys"). Anyone on the
+   app's sign-in list can be added with one click (user = their sign-in id). On a job, each part (Rough-in, Service,
+   Trim-out...) has a row of the guys to tap; the crew size follows how many are picked. A guy already on another job
+   on any of the same days shows orange with "busy" so nobody gets double-booked by accident. */
+let leadGuys = [], leadPeople = [], guysT = null;
+const guyName = id => (leadGuys.find(g => g.id === id) || {}).name || "(removed)";
+const menNames = p => (p.men || []).map(guyName);
+function phaseDaySet(p) {
+  const out = new Set(), s = dOf(p.start), n = phDays(p); if (!s || !n) return out;
+  let d = workDay(s); for (let k = 0; k < n; k++) { if (k) d = addWork(d, 1); out.add(ymd(d)); }
+  return out;
+}
+// where else each guy is on the days of this part: [job name + part] for each overlap
+function guyBusy(jobId, idx, p) {
+  const mine = phaseDaySet(p), out = {};
+  if (!mine.size) return out;
+  Object.entries(leadSched).forEach(([jid, e]) => (e.phases || []).forEach((q, qi) => {
+    if ((jid === jobId && qi === idx) || q.done || !(q.men || []).length) return;
+    const ds = phaseDaySet(q); if (![...ds].some(d => mine.has(d))) return;
+    const jn = (leadJobs.find(x => x.id === jid) || {}).name || "another job";
+    q.men.forEach(m => { (out[m] = out[m] || []).push(`${jn} ${q.name}`); });
+  }));
+  return out;
+}
+function guysPicker(jobId, idx, p) {
+  if (!leadGuys.length) return `<div class="ld-men-picks hint">Guys: add your crew on the <b>Crew list</b> tab, then pick them here.</div>`;
+  const busy = guyBusy(jobId, idx, p), on = new Set(p.men || []);
+  return `<div class="ld-men-picks"><span class="hint">Guys on ${escH(p.name)}:</span>` + leadGuys.map(g => {
+    const b = busy[g.id];
+    return `<button type="button" data-guy="${escH(g.id)}" aria-pressed="${on.has(g.id)}" class="${b ? "g-busy" : ""}" title="${b ? "Busy those days: " + escH(b.join(", ")) : escH(g.note || "")}">${escH(g.name)}${b ? " · busy" : ""}</button>`;
+  }).join("") + `</div>`;
+}
+function guysSave() {
+  clearTimeout(guysT);
+  guysT = setTimeout(async () => {
+    try { const o = await leadCall({ op: "guys", guys: leadGuys }); leadGuys = o.guys; leadSay("Crew list saved."); }
+    catch (e) { leadSay(e.message, true); }
+  }, 600);
+}
+const guyId = () => "g" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function crewDraw() {
+  const ul = $("leadGuys");
+  ul.innerHTML = leadGuys.length ? "" : `<li class="adm-row"><span class="adm-sub">Nobody on the crew list yet. Tap <b>+ Add a guy</b>, or add people from the sign-in list below.</span></li>`;
+  leadGuys.forEach((g, i) => {
+    const jobsOn = Object.entries(leadSched).filter(([, e]) => (e.phases || []).some(p => !p.done && (p.men || []).includes(g.id))).length;
+    const li = document.createElement("li"); li.className = "adm-row";
+    li.innerHTML = `<div class="ld-guy"><input class="g-nm" maxlength="40" value="${escH(g.name)}" placeholder="Name" aria-label="Name">
+      <input class="g-note" maxlength="60" value="${escH(g.note || "")}" placeholder="Foreman, helper, phone…" aria-label="Note">
+      <span class="hint">${jobsOn ? `On ${jobsOn} job${jobsOn === 1 ? "" : "s"}` : ""}</span>
+      <button class="btn sm" type="button" data-rm aria-label="Remove ${escH(g.name)}">×</button></div>`;
+    li.querySelector(".g-nm").onchange = e => { const v = e.target.value.trim(); if (v) { g.name = v; guysSave(); } else e.target.value = g.name; };
+    li.querySelector(".g-note").onchange = e => { g.note = e.target.value.trim(); guysSave(); };
+    li.querySelector("[data-rm]").onclick = () => {
+      leadGuys.splice(i, 1);
+      // take them off every job too
+      Object.entries(leadSched).forEach(([jid, e]) => { let ch = false; (e.phases || []).forEach(p => { const k = (p.men || []).indexOf(g.id); if (k >= 0) { p.men.splice(k, 1); ch = true; } }); if (ch) schedSave(jid); });
+      guysSave(); crewDraw();
+    };
+    ul.appendChild(li);
+  });
+  const have = new Set(leadGuys.map(g => g.user).filter(Boolean)), names = new Set(leadGuys.map(g => g.name.toLowerCase()));
+  const rank = r => ({ foreman: 0, electrician: 1, super: 2 })[r] ?? 3;
+  const from = leadPeople.filter(u => u.role !== "sub" && !have.has(u.id) && !names.has(String(u.name).toLowerCase())).sort((a, b) => rank(a.role) - rank(b.role) || a.name.localeCompare(b.name));
+  $("leadFromLbl").hidden = !from.length;
+  $("leadFrom").innerHTML = from.map(u => `<button type="button" data-from="${escH(u.id)}">+ ${escH(u.name)} <small>${escH(u.position || "")}</small></button>`).join("");
+  $("leadFrom").querySelectorAll("[data-from]").forEach(b => b.onclick = () => {
+    const u = leadPeople.find(x => x.id === b.dataset.from); if (!u) return;
+    leadGuys.push({ id: guyId(), name: u.name, note: u.position || "", user: u.id }); guysSave(); crewDraw();
+  });
+}
+$("leadGuyAdd").onclick = () => { leadGuys.push({ id: guyId(), name: "New guy", note: "" }); crewDraw(); const all = $("leadGuys").querySelectorAll(".g-nm"); const inp = all[all.length - 1]; if (inp) { inp.focus(); inp.select(); } guysSave(); };
 </script>
 </body></html>

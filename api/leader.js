@@ -7,6 +7,7 @@ import { loadSchedule, saveSchedule, loadMaster, saveMaster } from "../lib/team-
 // GET  ?what=master        anyone signed in: { items, by, saved }  (every estimate prices residential items from it)
 // GET                      leaders: { schedule: { jobs, by, saved }, master: { items, by, saved } }
 // POST { op: "sched", id, entry }   leaders: one job's schedule (entry null removes it); other jobs are left alone
+//      { op: "guys", guys: [{ id, name, note }] }   leaders: the crew list the schedule puts on each part of a job
 //      { op: "master", set: { <item id>: { price, labor, material, mins, notes } }, del: [<item id>] }   leaders
 const H = { "Cache-Control": "no-store" };
 const bad = (error, status = 400) => Response.json({ error }, { status, headers: H });
@@ -19,6 +20,7 @@ function cleanEntry(e) {
   const phases = (Array.isArray(e.phases) ? e.phases : []).slice(0, 12).map(p => ({
     name: txt(p && p.name, 40) || "Work", start: day(p && p.start), hours: num(p && p.hours, 1e5) || 0,
     crew: Math.max(1, Math.round(num(p && p.crew, 50) || 4)), day: Math.max(1, num(p && p.day, 24) || 10), done: !!(p && p.done),
+    men: (Array.isArray(p && p.men) ? p.men : []).filter(x => typeof x === "string" && /^[\w-]{1,40}$/.test(x)).slice(0, 40),
   }));
   return { phases, note: txt(e.note, 500), lead: txt(e.lead, 40), bidHours: num(e.bidHours, 1e5), loaded: txt(e.loaded, 30) };
 }
@@ -37,6 +39,9 @@ function cleanItem(o) {
   }).filter(Boolean);
   return Object.keys(out).length ? out : null;
 }
+const cleanGuys = list => (Array.isArray(list) ? list : []).slice(0, 300).map(g => ({ id: txt(g && g.id, 40).replace(/[^\w-]/g, ""), name: txt(g && g.name, 40).trim(), note: txt(g && g.note, 60).trim(), user: txt(g && g.user, 40).replace(/[^\w-]/g, "") || undefined }))
+  .filter(g => g.id && g.name);
+const guysOf = s => (s.data && s.data.guys) || [];
 const view = s => ({ by: (s.data && s.data.by) || "", saved: s.saved || null });
 export async function GET(request) {
   try {
@@ -47,7 +52,7 @@ export async function GET(request) {
     if (q.get("what") === "master") return Response.json(master, { headers: H });
     if (!isLeader(who)) return bad("Ask an admin to turn on the Leadership tab for you.", 403);
     const s = await loadSchedule();
-    return Response.json({ schedule: { jobs: (s.data && s.data.jobs) || {}, ...view(s) }, master }, { headers: H });
+    return Response.json({ schedule: { jobs: (s.data && s.data.jobs) || {}, guys: guysOf(s), ...view(s) }, master }, { headers: H });
   } catch (e) { return bad(e.message, 500); }
 }
 export async function POST(request) {
@@ -61,8 +66,13 @@ export async function POST(request) {
       const e = cleanEntry(b.entry);
       if (e) jobs[b.id] = { ...e, by, at }; else delete jobs[b.id];
       if (JSON.stringify(jobs).length > 4e6) return bad("The schedule is too big.");
-      await saveSchedule(jobs, by);
-      return Response.json({ jobs, by, saved: at }, { headers: H });
+      await saveSchedule(jobs, by, guysOf(s));
+      return Response.json({ jobs, guys: guysOf(s), by, saved: at }, { headers: H });
+    }
+    if (b.op === "guys") {
+      const s = await loadSchedule(), guys = cleanGuys(b.guys);
+      await saveSchedule((s.data && s.data.jobs) || {}, by, guys);
+      return Response.json({ guys, by, saved: at }, { headers: H });
     }
     if (b.op === "master") {
       const m = await loadMaster(), items = { ...((m.data && m.data.items) || {}) };
