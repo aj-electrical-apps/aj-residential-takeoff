@@ -965,7 +965,11 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 .ld-cal .ld-lbl { grid-column: 1; padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px dashed var(--line); }
 .ld-cal .ld-lbl small { color: var(--muted); }
 .ld-cal .ld-bar { margin: 3px 1px; border-radius: 5px; background: var(--accent); color: var(--accent-fg, #fff); font-weight: 700; text-align: center; line-height: 18px; cursor: pointer; overflow: hidden; }
+.ld-cal .ld-bar.ph-roughin { background: #1c7ed6; color: #fff; }
+.ld-cal .ld-bar.ph-service { background: #e8590c; color: #fff; }
+.ld-cal .ld-bar.ph-trim { background: #7048e8; color: #fff; }
 .ld-cal .ld-bar.done { background: var(--ok); opacity: .6; }
+.ld-pct { display: block; color: var(--muted); font-size: 11px; }
 .ld-cal .ld-men { font-weight: 700; text-align: center; border-top: 1px solid var(--line); padding-top: 3px; position: sticky; bottom: 0; background: var(--panel); }
 .ld-cal .ld-men.zero { color: var(--muted); }
 .ld-cal .ld-lbl.ld-men { text-align: left; }
@@ -1008,7 +1012,7 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v29<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v30<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="leadBtn" type="button" hidden title="Leadership: job schedule and the master parts sheet">Leadership</button>
@@ -11468,16 +11472,23 @@ function schedSave(id, now) {
   };
   if (now) go(); else schedT[id] = setTimeout(() => { delete schedT[id]; go(); }, 700);
 }
+/* the bid's hours always split the same way (Jonathan 2026-11-25: "70% of the hours go the rough in and the service has 10%
+   and 20% for the trim out. this should let them schedule each section independently"). Each part keeps its own start date,
+   crew and hours a day; loading the bid again only changes the hours. Parts someone added by hand are left alone. */
+const SCHED_SPLIT = [["Rough-in", 70], ["Service", 10], ["Trim-out", 20]];
+const splitKey = n => String(n || "").toLowerCase().replace(/[^a-z]/g, "").replace(/out$/, "");
+const splitPct = n => (SCHED_SPLIT.find(([k]) => splitKey(k) === splitKey(n)) || [])[1];
 function schedLoad(j) {
   const e = leadSched[j.id] = schedEntry(j.id), h = jobHoursOf(j);
   if (!h) return leadSay(`${j.name} doesn't have man hours yet. Open the job, price it on the Residential price or Bid sheet, and it saves its hours here by itself.`, true);
-  if (!e.phases.length) e.phases.push(newPhase("Whole job", h.h));
-  else {
-    const tot = e.phases.reduce((t, p) => t + (+p.hours || 0), 0);
-    e.phases.forEach(p => { p.hours = Math.round((tot ? (+p.hours || 0) / tot : 1 / e.phases.length) * h.h * 10) / 10; });
-  }
+  e.phases = e.phases.filter(p => !(p.name === "Whole job" && !p.start)); // the old single bar, never given a date
+  SCHED_SPLIT.forEach(([name, pct], i) => {
+    let p = e.phases.find(x => splitKey(x.name) === splitKey(name));
+    if (!p) { p = newPhase(name, 0); e.phases.splice(Math.min(i, e.phases.length), 0, p); }
+    p.hours = Math.round(h.h * pct / 100 * 10) / 10;
+  });
   e.bidHours = h.h; e.loaded = new Date().toISOString();
-  leadSay(`Loaded ${fmtH(h.h)} man hours from ${h.from}.`);
+  leadSay(`Loaded ${fmtH(h.h)} man hours from ${h.from}: Rough-in 70%, Service 10%, Trim-out 20%. Pick a start date for each one.`);
   schedSave(j.id); schedDraw();
 }
 function schedDraw() {
@@ -11503,12 +11514,12 @@ function schedDraw() {
       ${open ? `<div class="ld-ed">
         <div class="adm-picks"><button class="btn sm primary" type="button" data-a="load"${h ? "" : " disabled"}>Load hours from the bid${h ? ` (${fmtH(h.h)})` : ""}</button>
           <button class="btn sm" type="button" data-a="add">+ Add a phase</button>
-          ${["Rough-in", "Trim", "Service"].map(n => `<button class="btn sm" type="button" data-addn="${n}">+ ${n}</button>`).join("")}</div>
+          ${SCHED_SPLIT.filter(([n]) => !ph.some(p => splitKey(p.name) === splitKey(n))).map(([n]) => `<button class="btn sm" type="button" data-addn="${n}">+ ${n}</button>`).join("")}</div>
         ${e.loaded ? `<div class="hint">Hours loaded from the bid ${whenSaved(e.loaded)}${e.bidHours != null && h && Math.abs(h.h - e.bidHours) > .05 ? `. <b>The bid has changed to ${fmtH(h.h)} hours since</b>; load them again to update.` : "."} Days = man hours ÷ (crew × hours a day), weekdays only.</div>` : `<div class="hint">Days = man hours ÷ (crew × hours a day), weekdays only. Load the bid's hours, or type them.</div>`}
         <div class="trk-wrap"><table class="ld-tbl"><thead><tr><th>Phase</th><th>Start</th><th class="n">Man hours</th><th class="n">Crew</th><th class="n">Hrs/day</th><th class="n">Days</th><th>Finish</th><th>Done</th><th></th></tr></thead><tbody>
         ${ph.map((p, i) => `<tr data-i="${i}"><td><input data-f="name" value="${escH(p.name)}" maxlength="40" aria-label="Phase name"></td>
           <td><input type="date" data-f="start" value="${escH(p.start)}" aria-label="Start date"></td>
-          <td class="n"><input type="number" data-f="hours" min="0" step="0.5" value="${p.hours || ""}" aria-label="Man hours"></td>
+          <td class="n"><input type="number" data-f="hours" min="0" step="0.5" value="${p.hours || ""}" aria-label="Man hours">${splitPct(p.name) ? `<small class="ld-pct">${splitPct(p.name)}% of bid</small>` : ""}</td>
           <td class="n"><input type="number" data-f="crew" min="1" step="1" value="${p.crew}" aria-label="Men on the crew"></td>
           <td class="n"><input type="number" data-f="day" min="1" max="24" step="0.5" value="${p.day}" aria-label="Hours a day"></td>
           <td class="n"><b>${phDays(p) || "—"}</b></td><td>${escH(shortDay(phEnd(p)) || "—")}</td>
@@ -11520,7 +11531,7 @@ function schedDraw() {
     const qa = (k, f) => { const b = li.querySelector(`[data-a="${k}"]`); if (b) b.onclick = f; };
     qa("open", () => { leadOpenId = open ? null : j.id; leadSay(""); schedDraw(); });
     qa("load", () => schedLoad(j));
-    const add = name => { const en = leadSched[j.id] = schedEntry(j.id); en.phases.push(newPhase(name, 0)); const prev = en.phases[en.phases.length - 2], pe = prev && phEnd(prev); if (pe) en.phases[en.phases.length - 1].start = ymd(addWork(pe, 1)); schedSave(j.id); schedDraw(); };
+    const add = name => { const en = leadSched[j.id] = schedEntry(j.id); en.phases.push(newPhase(name, h && splitPct(name) ? Math.round(h.h * splitPct(name) / 10) / 10 : 0)); const prev = en.phases[en.phases.length - 2], pe = prev && phEnd(prev); if (pe) en.phases[en.phases.length - 1].start = ymd(addWork(pe, 1)); schedSave(j.id); schedDraw(); };
     qa("add", () => add("Phase " + (e.phases.length + 1)));
     li.querySelectorAll("[data-addn]").forEach(b => b.onclick = () => add(b.dataset.addn));
     li.querySelectorAll("tr[data-i] [data-f]").forEach(inp => inp.onchange = () => {
@@ -11554,7 +11565,7 @@ function schedCal() {
   let h = `<div class="ld-cal" style="${cols}"><div class="ld-hd"></div>` + days.map((d, i) => `<div class="ld-hd${ymd(d) === today ? " today" : ""}${i % 5 === 0 ? " wk" : ""}" title="${escH(shortDay(d))}">${i % 5 === 0 ? `<b>${d.toLocaleDateString([], { month: "numeric", day: "numeric" })}</b>` : ""}${"MTWTF"[i % 5]}</div>`).join("");
   rows.forEach(r => {
     h += `<div class="ld-lbl" title="${escH(r.j.name)} · ${escH(r.p.name)}">${escH(r.j.no ? r.j.no + " " : "")}${escH(r.j.name)} <small>${escH(r.p.name)}</small></div>`;
-    h += `<div class="ld-bar${r.p.done ? " done" : ""}" style="grid-column:${r.a + 2} / ${r.b + 3}" data-job="${escH(r.j.id)}" title="${escH(r.p.name)}: ${fmtH(+r.p.hours || 0)} man hours, ${r.p.crew} men, ${phDays(r.p)} days">${r.p.crew}</div>`;
+    h += `<div class="ld-bar ph-${splitKey(r.p.name)}${r.p.done ? " done" : ""}" style="grid-column:${r.a + 2} / ${r.b + 3}" data-job="${escH(r.j.id)}" title="${escH(r.p.name)}: ${fmtH(+r.p.hours || 0)} man hours, ${r.p.crew} men, ${phDays(r.p)} days">${r.p.crew}</div>`;
   });
   if (!rows.length) h += `<div class="ld-lbl hint" style="grid-column: 1 / -1">Nothing scheduled in these weeks. Open a job below, load its hours and pick a start date.</div>`;
   h += `<div class="ld-lbl ld-men">Men out</div>` + men.map(m => `<div class="ld-men${m ? "" : " zero"}">${m || ""}</div>`).join("") + `</div>`;
