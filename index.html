@@ -9397,12 +9397,12 @@ async function teamPush(j, list, { force, progress } = {}) {
   const { driveJsonId, driveSheetsId, teamUrl, teamForce, folderAt, ...keep } = j;
   const data = { app: "aj-takeoff", v: 1, kind: "team-job", savedAt: new Date().toISOString(), by: teamWho, job: keep,
     pages: list.map(p => { const { fileId, ...m } = meta(p); return { id: p.id, ...m }; }) };
-  const details = b64url({ n: (j.name || "").slice(0, 70), c: (j.customer || "").slice(0, 50), a: (j.address || "").slice(0, 60), b: j.bidDate || "", cr: j.created || "", u: j.updated || "", s: list.length, by: teamWho.slice(0, 30), ...(j.bidHrs ? { h: j.bidHrs.h } : {}) });
+  const details = b64url({ n: (j.name || "").slice(0, 70), c: (j.customer || "").slice(0, 50), a: (j.address || "").slice(0, 60), b: j.bidDate || "", cr: j.created || "", u: j.updated || "", s: list.length, by: teamWho.slice(0, 30), ...(j.bidHrs ? { h: j.bidHrs.h, ...(j.bidHrs.ug ? { g: j.bidHrs.ug } : {}) } : {}) });
   const url = await teamPut(`team/data/${tid}/m${details}.json`, new Blob([JSON.stringify(data)], { type: "application/json" }), "application/json");
   j.teamUrl = url; delete j.teamForce;
   await putJobLocal(j);
   if (!(job === j && syncWanted)) lsSet("aj-unsent-" + j.id, null);
-  teamIndex[tid] = { ...(teamIndex[tid] || {}), id: tid, name: j.name, customer: j.customer, bidDate: j.bidDate, updated: j.updated, sheets: list.length, by: teamWho, url, saved: data.savedAt, ...(j.bidHrs ? { hours: j.bidHrs.h } : {}) };
+  teamIndex[tid] = { ...(teamIndex[tid] || {}), id: tid, name: j.name, customer: j.customer, bidDate: j.bidDate, updated: j.updated, sheets: list.length, by: teamWho, url, saved: data.savedAt, ...(j.bidHrs ? { hours: j.bidHrs.h, ugHours: j.bidHrs.ug || 0 } : {}) };
   if (!teamIndex[tid].no) setTimeout(jobNoRefresh, 500); // a new job gets its number on its first save online
   fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "tidy", id: tid }) }).catch(() => {});
   return { url };
@@ -11404,12 +11404,23 @@ const rmEq = (k, a, b) => k === "parts" ? JSON.stringify(a || []) === JSON.strin
 let resMaster = {}, resMasterInfo = { by: "", saved: null }, resMasterReady = false;
 const rmHas = id => !!resMaster[id] && RM_KEYS.some(k => resMaster[id][k] != null);
 // the job's man hours: the Residential price sheet's, or the Bid sheet's when nothing is priced there yet
+/* Underground man hours inside the bid (Jonathan 2026-11-27: "the underground should come off the price in the underground,
+   when the underground is selected and the linear is done"). Residential price: the Service Underground (per ft) line.
+   Bid sheet: the conduit and wire in every run drawn with Underground, in a ditch checked, at that material's man hours a foot. */
+function ugBidHours(fromRes) {
+  try {
+    if (fromRes) return resRows().filter(r => r.it.id === "ugft").reduce((t, r) => t + r.mins, 0) / 60;
+    const ids = new Set(wiresList().filter(w => hasTrench(w) && !isDitch(w)).map(w => w.id)); if (!ids.size) return 0;
+    const per = new Map(bidRows().filter(r => r.key.startsWith("m:")).map(r => [r.key.slice(2), r.h || 0]));
+    return takeoffRows().foot.filter(f => f.sup && ids.has(String(f.key).split(":")[0]) && !String(f.key).endsWith(":t")).reduce((t, f) => t + f.total * (per.get(f.sup) || 0), 0);
+  } catch (e) { return 0; }
+}
 function jobBidHours() {
   try {
     const res = resRows().reduce((t, r) => t + r.mins, 0) / 60;
     let bid = 0; try { bid = bidTotals(bidRows()).hrs; } catch (e) {}
-    const h = res > 0 ? res : bid;
-    return h > 0 ? { h: Math.round(h * 10) / 10, res: Math.round(res * 10) / 10, bid: Math.round(bid * 10) / 10, from: res > 0 ? "Residential price" : "Bid sheet", at: new Date().toISOString() } : null;
+    const h = res > 0 ? res : bid, ug = Math.min(h, ugBidHours(res > 0)), r1 = x => Math.round(x * 10) / 10;
+    return h > 0 ? { h: r1(h), ug: r1(ug), res: r1(res), bid: r1(bid), from: res > 0 ? "Residential price" : "Bid sheet", at: new Date().toISOString() } : null;
   } catch (e) { return null; }
 }
 function resMasterApply(items) {
@@ -11479,7 +11490,7 @@ function addWork(d, n) { d = workDay(d); while (n > 0) { d.setDate(d.getDate() +
 const phDays = p => p.hours > 0 ? Math.max(1, Math.ceil(p.hours / (Math.max(1, p.crew || 4) * Math.max(1, p.day || 10)))) : 0;
 const phEnd = p => { const s = dOf(p.start), n = phDays(p); return s && n ? addWork(s, n - 1) : null; };
 const shortDay = d => d ? d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }) : "";
-const jobHoursOf = j => { if (job && segId(job.id) === j.id) { const h = jobBidHours(); if (h) return h; } return j.hours ? { h: j.hours, from: "the bid" } : null; };
+const jobHoursOf = j => { if (job && segId(job.id) === j.id) { const h = jobBidHours(); if (h) return h; } return j.hours ? { h: j.hours, ug: Math.min(j.hours, +j.ugHours || 0), from: "the bid" } : null; };
 const newPhase = (name, hours) => ({ name, start: "", hours: hours || 0, crew: 4, day: 10, done: false });
 function schedEntry(id) { return leadSched[id] || { phases: [], note: "", lead: "" }; }
 let schedT = {};
@@ -11507,13 +11518,21 @@ function schedLoad(j) {
   const e = leadSched[j.id] = schedEntry(j.id), h = jobHoursOf(j);
   if (!h) return leadSay(`${j.name} doesn't have man hours yet. Open the job, price it on the Residential price or Bid sheet, and it saves its hours here by itself.`, true);
   e.phases = e.phases.filter(p => !(p.name === "Whole job" && !p.start)); // the old single bar, never given a date
+  // the bid's underground hours go to Underground first; the rest splits 70 / 10 / 20
+  const ug = Math.round((+h.ug || 0) * 10) / 10, rest = h.h - ug;
+  if (ug > 0) {
+    let p = e.phases.find(x => splitKey(x.name) === "underground");
+    if (!p) { p = newPhase("Underground", 0); e.phases.unshift(p); }
+    p.hours = ug;
+  }
   SCHED_SPLIT.forEach(([name, pct], i) => {
     let p = e.phases.find(x => splitKey(x.name) === splitKey(name));
-    if (!p) { p = newPhase(name, 0); e.phases.splice(Math.min(i, e.phases.length), 0, p); }
-    p.hours = Math.round(h.h * pct / 100 * 10) / 10;
+    if (!p) { p = newPhase(name, 0); e.phases.splice(Math.min(i + (ug > 0 ? 1 : 0), e.phases.length), 0, p); }
+    p.hours = Math.round(rest * pct / 100 * 10) / 10;
   });
   e.bidHours = h.h; e.loaded = new Date().toISOString();
-  leadSay(`Loaded ${fmtH(h.h)} man hours from ${h.from}: Rough-in 70%, Service 10%, Trim-out 20%. Pick a start date for each one.`);
+  leadSay(ug > 0 ? `Loaded ${fmtH(h.h)} man hours from ${h.from}: Underground ${fmtH(ug)} from the bid's underground, then the other ${fmtH(rest)} split Rough-in 70%, Service 10%, Trim-out 20%. Pick a start date for each one.`
+    : `Loaded ${fmtH(h.h)} man hours from ${h.from}: Rough-in 70%, Service 10%, Trim-out 20%. The bid has no underground hours. Pick a start date for each one.`);
   schedSave(j.id); schedDraw();
 }
 function schedDraw() {
@@ -11544,7 +11563,7 @@ function schedDraw() {
         <div class="trk-wrap"><table class="ld-tbl"><thead><tr><th>Phase</th><th>Start</th><th class="n">Man hours</th><th class="n">Crew</th><th class="n">Hrs/day</th><th class="n">Days</th><th>Finish</th><th>Done</th><th></th></tr></thead><tbody>
         ${ph.map((p, i) => `<tr data-i="${i}"><td><input data-f="name" value="${escH(p.name)}" maxlength="40" aria-label="Phase name"></td>
           <td><input type="date" data-f="start" value="${escH(p.start)}" aria-label="Start date"></td>
-          <td class="n"><input type="number" data-f="hours" min="0" step="0.5" value="${p.hours || ""}" aria-label="Man hours">${splitPct(p.name) ? `<small class="ld-pct">${splitPct(p.name)}% of bid</small>` : ""}</td>
+          <td class="n"><input type="number" data-f="hours" min="0" step="0.5" value="${p.hours || ""}" aria-label="Man hours">${splitPct(p.name) ? `<small class="ld-pct">${splitPct(p.name)}% of ${h && h.ug > 0 ? "the rest" : "bid"}</small>` : splitKey(p.name) === "underground" && h && h.ug > 0 ? `<small class="ld-pct">bid's underground</small>` : ""}</td>
           <td class="n"><input type="number" data-f="crew" min="1" step="1" value="${p.crew}" aria-label="Men on the crew"></td>
           <td class="n"><input type="number" data-f="day" min="1" max="24" step="0.5" value="${p.day}" aria-label="Hours a day"></td>
           <td class="n"><b>${phDays(p) || "—"}</b></td><td>${escH(shortDay(phEnd(p)) || "—")}</td>
@@ -11557,7 +11576,7 @@ function schedDraw() {
     const qa = (k, f) => { const b = li.querySelector(`[data-a="${k}"]`); if (b) b.onclick = f; };
     qa("open", () => { leadOpenId = open ? null : j.id; leadSay(""); schedDraw(); });
     qa("load", () => schedLoad(j));
-    const add = name => { const en = leadSched[j.id] = schedEntry(j.id); en.phases.push(newPhase(name, h && splitPct(name) ? Math.round(h.h * splitPct(name) / 10) / 10 : 0)); const prev = en.phases[en.phases.length - 2], pe = prev && phEnd(prev); if (pe) en.phases[en.phases.length - 1].start = ymd(addWork(pe, 1)); schedSave(j.id); schedDraw(); };
+    const add = name => { const en = leadSched[j.id] = schedEntry(j.id); en.phases.push(newPhase(name, h && splitPct(name) ? Math.round((h.h - (+h.ug || 0)) * splitPct(name) / 10) / 10 : h && splitKey(name) === "underground" ? Math.round((+h.ug || 0) * 10) / 10 : 0)); const prev = en.phases[en.phases.length - 2], pe = prev && phEnd(prev); if (pe) en.phases[en.phases.length - 1].start = ymd(addWork(pe, 1)); schedSave(j.id); schedDraw(); };
     qa("add", () => add("Phase " + (e.phases.length + 1)));
     li.querySelectorAll("[data-addn]").forEach(b => b.onclick = () => add(b.dataset.addn));
     li.querySelectorAll("tr[data-i] [data-f]").forEach(inp => inp.onchange = () => {
