@@ -355,6 +355,9 @@ html.look-new body { font-family: var(--font-ui); }
 .runs-scale { font-size: 13px; }
 .runs-scale b { font-family: var(--font-mono); font-weight: 600; }
 .runs-scale.unset { color: var(--warn); }
+#wireForm:not(.pvc) .pvc-row, #wireForm.jh .pvc-row, #wireForm.dt .pvc-row { display: none; }
+.run .run-ends { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+.run .run-ends select { grid-column: auto; flex: 1; margin-top: 0; }
 .run-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .run { display: grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: center; }
 .run select { grid-column: 1 / -1; min-width: 0; height: 28px; font-size: 13px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); padding: 0 6px; margin-top: -2px; }
@@ -1049,7 +1052,7 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v31<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v32<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="leadBtn" type="button" hidden title="Leadership: job schedule and the master parts sheet">Leadership</button>
@@ -1998,6 +2001,11 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
       <div class="opt"><label for="wConduit">Conduit</label><select id="wConduit"></select></div>
       <div class="opt"><label for="wSize">Conduit size</label><select id="wSize"></select></div>
     </div>
+    <div class="sched two pvc-row">
+      <div class="opt"><label for="wEndA">Long sweep 90 at the start</label><select id="wEndA"></select></div>
+      <div class="opt"><label for="wEndB">Long sweep 90 at the stop</label><select id="wEndB"></select></div>
+    </div>
+    <p class="hint pvc-row" style="margin:0">PVC gets only straps and long sweep 90s: 4 straps and a sweep at each end of every run you draw. You can change the ends of one run in the Runs list.</p>
     <div class="sched three wire-only">
       <div class="opt"><label for="wCount">How many wires</label><input type="number" id="wCount" min="1" max="40" step="1" inputmode="numeric"></div>
       <div class="opt"><label for="wGauge">Wire size</label><select id="wGauge"></select></div>
@@ -3799,6 +3807,8 @@ function brkParts(r) {
   const sp = brkSpec(r), ft = brkSt(r) === "new" && !r.main ? (+r.ft || 0) * sp.sets : 0; if (!ft) return [];
   if (r.how === "mc") return [[ft, mcName({ method: "mc", gauge: sp.g, wires: brkWires(r) }), "ft"], [2, "MC connector", ""], [Math.ceil(ft / 6), "MC strap", ""]];
   const nm = `${sp.cs} ${sp.ct}`;
+  if (isPVC(sp.ct)) return [[ft, `${nm} conduit`, "ft"], [ft * sp.hots, `${gaugeTxt(sp.g)} THHN copper wire`, "ft"], [ft, `${gaugeTxt(sp.egc)} THHN copper ground wire`, "ft"],
+    [4 * sp.sets, `${nm} strap`, ""], [2 * sp.sets, sweepName(sp.cs, sweepDef(sp.ct)), ""]];
   return [[ft, `${nm} conduit`, "ft"], [ft * sp.hots, `${gaugeTxt(sp.g)} THHN copper wire`, "ft"], [ft, `${gaugeTxt(sp.egc)} THHN copper ground wire`, "ft"],
     [2 * sp.sets, `${nm} connector`, ""], [Math.ceil(ft / 10), `${nm} coupling`, ""], [Math.ceil(ft / 3), `${nm} strap`, ""]];
 }
@@ -4864,8 +4874,26 @@ function supplierRows() {
     else { parts.set(p.n, (parts.get(p.n) || 0) + n); note("p:" + p.n, `${qty} ${it.name}${p.q !== 1 ? ` × ${+p.q}` : ""}`); }
   }));
   // conduit fittings: coupling every 10', connector every 100', strap every 3' (underground: no straps); drops carry their own fittings
+  // PVC Sch 40/80 is different (Jonathan 2026-11-28): only 4 straps per conduit run and a long sweep 90 at each end, nothing else
+  const pvcFit = new Map(), pvcAdd = (n, q) => { if (q) pvcFit.set(n, (pvcFit.get(n) || 0) + q); };
+  wiresList().forEach(w => {
+    if (!isPVC(w.conduit) || isJH(w) || isDitch(w)) return;
+    const per = isUG(w) || isPull(w) ? (w.runs || 1) : (w.sets || 1); // conduits side by side in each drawn run
+    pages.forEach(pg => pg.ftPerPx && pg.runs.forEach(r => {
+      if (r.typeId !== w.id || !inScope(r) || !runPx(pg, r)) return;
+      const n = per * runW(pg, r);
+      pvcAdd(`${w.size} ${w.conduit} strap`, 4 * n);
+      ["A", "B"].forEach(e => { const v = runEnd(w, r, e); if (v !== "none") pvcAdd(sweepName(w.size, v), n); });
+    }));
+  });
   foot.filter(f => f.sup && / conduit$/.test(f.sup) && !f.drop).forEach(f => {
-    const nm = f.sup.replace(/ conduit$/, ""), cur = fit.get(nm) || { lf: 0, ug: 0, conn: 0, connLf: 0 };
+    const nm0 = f.sup.replace(/ conduit$/, ""), pm = nm0.match(/^(.*) (PVC Sch (?:40|80))$/);
+    if (pm) { // breaker circuits know their ends (2 per circuit); fixture feeds are one run per fixture; drawn runs were counted above
+      const ends = f.conn || (/^feed:/.test(f.key) ? 2 * (+(f.sub.match(/^(\d+) ×/) || [])[1] || 0) : 0);
+      if (ends) { pvcAdd(`${nm0} strap`, 2 * ends); pvcAdd(sweepName(pm[1], sweepDef(pm[2])), ends); }
+      return;
+    }
+    const nm = nm0, cur = fit.get(nm) || { lf: 0, ug: 0, conn: 0, connLf: 0 };
     cur.lf += f.total; if (f.ug) cur.ug += f.total; if (f.conn) { cur.conn += f.conn; cur.connLf += f.total; } fit.set(nm, cur); // breaker circuits: 2 connectors each
   });
   const fittings = [];
@@ -4873,6 +4901,7 @@ function supplierRows() {
     fittings.push({ name: `${nm} coupling`, qty: Math.ceil(v.lf / 10) }, { name: `${nm} connector`, qty: Math.ceil((v.lf - v.connLf) / 100) + v.conn });
     if (v.lf - v.ug > 0) fittings.push({ name: `${nm} strap`, qty: Math.ceil((v.lf - v.ug) / 3) });
   });
+  pvcFit.forEach((qty, name) => fittings.push({ name, qty: Math.ceil(qty) }));
   const ov = overOf(), set = (m, k) => { m.key = k; m.calc = m.qty; if (ov[k] != null && ov[k] !== "") m.qty = +ov[k]; return m; };
   const from = k => (why.get(k) || []).join(" + ");
   return { counts: counts.filter(c => !c.brk), mat: [...mat].map(([name, lf]) => ({ name, lf: Math.ceil(lf), from: from("m:" + name) })), parts: [...parts].map(([name, qty]) => set({ name, qty: Math.ceil(qty), from: from("p:" + name) }, "p:" + name)).sort((a, b) => a.name.localeCompare(b.name)),
@@ -7509,6 +7538,16 @@ const NOPIPE = [...CABLES, "No conduit"]; // cable types: no conduit size
 const CSIZES = ['1/2"', '3/4"', '1"', '1-1/4"', '1-1/2"', '2"', '2-1/2"', '3"', '3-1/2"', '4"'];
 // + Add run offers only the conduit Jonathan uses; a run type that already has another one keeps it
 const RES_CONDUITS = ["EMT", "PVC Sch 40", "PVC Sch 80", "Rigid (RMC)", "No conduit"], RES_CSIZES = ['1"', '1-1/2"', '2"', '3"'];
+/* PVC Sch 40/80 (Jonathan 2026-11-28): no couplings or connectors, just 4 straps per conduit run and a long sweep 90 at each end.
+   Each end can be a Rigid, Sch 40 or Sch 80 sweep, 24" or 36" radius. Stored as "PVC Sch 40|24"; "none" = no elbow there. */
+const isPVC = c => /^PVC Sch (40|80)$/.test(c || "");
+const SWEEP_TYPES = ["PVC Sch 40", "PVC Sch 80", "Rigid (RMC)"], SWEEP_RAD = ["24", "36"];
+const SWEEP_OPTS = [...SWEEP_TYPES.flatMap(t => SWEEP_RAD.map(r => [`${t}|${r}`, `${t.replace("PVC ", "").replace(" (RMC)", "")}, ${r}"`])), ["none", "No elbow"]];
+const sweepDef = c => `${isPVC(c) ? c : "PVC Sch 40"}|24`;
+const sweepOk = v => SWEEP_OPTS.some(o => o[0] === v);
+const sweepName = (size, v) => { const [t, r] = v.split("|"); return `${size} ${t} long sweep 90, ${r}" radius`; };
+// the sweep at one end of a drawn run: the run's own pick, else its type's, else the conduit's own kind at 24"
+const runEnd = (w, r, end) => [r && r["end" + end], w && w["end" + end]].find(sweepOk) || sweepDef(w && w.conduit);
 const GAUGES = ["14", "12", "10", "8", "6", "4", "3", "2", "1", "1/0", "2/0", "3/0", "4/0", "250", "300", "350", "400", "500", "600", "750"];
 const INSUL = ["STR", "SOL", "THHN STR", "THHN SOL", "XHHW", "XHHW-2 AL", "USE-2", "Bare"];
 // NEC 310.16, 75°C column: allowable ampacity by size
@@ -7637,7 +7676,8 @@ let editingWire = null;
 const fillSel = (id, opts, lab) => { $(id).innerHTML = opts.map(o => `<option value="${o.replace(/"/g, "&quot;")}">${(lab ? lab(o) : o).replace(/"/g, "&quot;")}</option>`).join(""); };
 const fillRunSels = w => { const c = RES_CONDUITS.concat(w && w.conduit && !RES_CONDUITS.includes(w.conduit) ? [w.conduit] : []), z = RES_CSIZES.concat(w && w.size && !RES_CSIZES.includes(w.size) ? [w.size] : []);
   fillSel("wConduit", CONDUITS.filter(x => c.includes(x))); fillSel("wSize", CSIZES.filter(x => z.includes(x))); };
-fillRunSels(null); fillSel("wGauge", GAUGES, gaugeTxt); fillSel("wIns", INSUL);
+fillRunSels(null); fillSel("wGauge", GAUGES, gaugeTxt);
+["wEndA", "wEndB"].forEach(id => { $(id).innerHTML = SWEEP_OPTS.map(([v, t]) => `<option value="${v}">${t.replace(/"/g, "&quot;")}</option>`).join(""); }); fillSel("wIns", INSUL);
 $("wGround").innerHTML = `<option value="">No separate ground</option>` + GAUGES.map(g => `<option value="${g}">${gaugeTxt(g)} ground</option>`).join("");
 function fillAmps() {
   const mat = $("wMat").value, opt = a => `<option value="${a}">${a} A · ${(sz => (sz.sets > 1 ? sz.sets + " sets of " : "") + gaugeTxt(sz.gauge))(sizeForAmps(mat, a))}</option>`;
@@ -7670,6 +7710,11 @@ const isJH = w => w && w.kind === "jhook";
 const hooksOn = (pxLen, pg, w) => pg.ftPerPx ? Math.ceil(pxLen * pg.ftPerPx / (w.interval || 5)) + 1 : 0;
 const hooksOf = w => pages.reduce((t, pg) => t + pg.runs.filter(r => r.typeId === w.id && inScope(r)).reduce((a, r) => a + hooksOn(r.px, pg, w) * runW(pg, r), 0), 0);
 function wireFields() {
+  const f = wireFields0();
+  if (isPVC(f.conduit) && f.kind !== "jhook" && f.kind !== "ditch") { f.endA = $("wEndA").value; f.endB = $("wEndB").value; } else { f.endA = undefined; f.endB = undefined; }
+  return f;
+}
+function wireFields0() {
   const label = $("wLabel").value.trim();
   if ($("wKind").value === "jhook") return { label, kind: "jhook", interval: Math.max(1, Math.min(20, +$("wHook").value || 5)), conduit: "No conduit", size: "", count: 0, gauge: "", ins: "", ground: "", color: $("wColor").value, sets: 1, mat: "CU", amps: null };
   if ($("wKind").value === "ditch") return { label, kind: "ditch", conduit: "No conduit", size: "", count: 0, gauge: "", ins: "", ground: "", color: $("wColor").value, sets: 1, mat: "CU", amps: null,
@@ -7693,6 +7738,7 @@ function wirePreview() {
   $("wireForm").classList.toggle("pl", $("wKind").value === "pull");
   $("wireForm").classList.toggle("ptr", $("wKind").value === "pull" && $("wTrench").checked);
   $("wireForm").classList.toggle("dt", $("wKind").value === "ditch");
+  $("wireForm").classList.toggle("pvc", isPVC($("wConduit").value));
   $("wSize").disabled = NOPIPE.includes($("wConduit").value);
   const w = wireFields();
   $("wirePrev").textContent = wireLabel(w);
@@ -7702,6 +7748,8 @@ function wirePreview() {
   el.textContent = !f ? "" : `Conduit fill about ${Math.round(f.used * 100)}% (EMT sizes; ${Math.round(f.max * 100)}% allowed)` +
     (f.used > f.max ? `. Too full: try ${conduitFor(w)}.` : ".");
 }
+$("wConduit").addEventListener("input", () => { const c = $("wConduit").value; if (!isPVC(c)) return;
+  ["wEndA", "wEndB"].forEach(id => { if (/^PVC Sch (40|80)\|/.test($(id).value)) $(id).value = `${c}|${$(id).value.split("|")[1]}`; }); });
 ["wLabel", "wConduit", "wSize", "wCount", "wGauge", "wIns", "wGround", "wSets", "wDepth", "wFill", "wWidth", "wRuns", "wFillDepth", "wSpacer", "wTrench"].forEach(id => $(id).addEventListener("input", wirePreview));
 $("wKind").addEventListener("input", () => {
   // underground runs are usually PVC; going back to wire picks EMT again
@@ -7761,6 +7809,7 @@ function openWire(id) {
   $("wColor").value = w.color || PALETTE[(list.length + 3) % PALETTE.length];
   $("wLabel").value = w.label || ""; $("wKind").value = ["ug", "jhook", "pull", "ditch"].includes(w.kind) ? w.kind : "wire"; $("wHook").value = w.interval || 5; $("wDepth").value = String(w.depth || 24); $("wFill").value = w.backfill || "None"; $("wWidth").value = String(w.width || 30); $("wRuns").value = w.runs || 1; $("wFillDepth").value = w.fillDepth || "full"; $("wSpacer").value = String(w.spacer || 0); $("wTrench").checked = !!w.trench; $("wFor").value = w.for || ""; if (isPull(w)) $("wKind").value = "pull";
   if (isUG(w)) { $("wCount").value = 3; $("wGauge").value = "12"; $("wIns").value = "STR"; }
+  $("wEndA").value = sweepOk(w.endA) ? w.endA : sweepDef($("wConduit").value); $("wEndB").value = sweepOk(w.endB) ? w.endB : sweepDef($("wConduit").value);
   $("wCircRow").hidden = !isCirc(editingWire); $("wCirc").value = isCirc(editingWire) ? editingWire.circ : "";
   $("wireDelete").hidden = !editingWire;
   $("wireSave").textContent = editingWire ? "Save" : "Save and draw";
@@ -8016,8 +8065,20 @@ function renderRuns() {
       s.innerHTML = `<option value="">No conduit / wire type</option>` + wiresList().map(w => `<option value="${w.id}"></option>`).join("");
       [...s.options].slice(1).forEach((o, i) => { o.textContent = wireLabel(wiresList()[i]); });
       s.value = r.typeId && wireOf(r.typeId) ? r.typeId : "";
-      s.onchange = () => { remember(); r.typeId = s.value || null; saveMeta(p); renderWires(); drawOverlay(); };
+      s.onchange = () => { remember(); r.typeId = s.value || null; saveMeta(p); renderRuns(); renderWires(); drawOverlay(); };
       li.appendChild(s);
+      const w = wireOf(r.typeId);
+      if (w && isPVC(w.conduit) && !isJH(w) && !isDitch(w)) { // PVC: pick the long sweep 90 at each end of this run
+        const d = document.createElement("div"); d.className = "run-ends";
+        d.innerHTML = `<span>Start</span><select data-end="A" aria-label="Elbow at the start"></select><span>Stop</span><select data-end="B" aria-label="Elbow at the stop"></select>`;
+        d.querySelectorAll("select").forEach(es => {
+          const e = es.dataset.end;
+          es.innerHTML = SWEEP_OPTS.map(([v, t]) => `<option value="${v}">${t.replace(/"/g, "&quot;")}</option>`).join("");
+          es.value = runEnd(w, r, e);
+          es.onchange = () => { remember(); r["end" + e] = es.value; saveMeta(p); renderWires(); };
+        });
+        li.appendChild(d);
+      }
     }
     list.appendChild(li);
   }
