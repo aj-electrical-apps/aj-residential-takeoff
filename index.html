@@ -1004,11 +1004,52 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
 .ld-ptbl select { padding: 3px 4px; font: inherit; }
 .ld-mtbl input.over { border-color: var(--warn); background: var(--warn-soft); }
 @media print { .ts-table input.rs-q, .ts-table input.rs-p, #rsDisc { display: none; } }
+/* panel schedule (v31) */
+.modal-card.ps-card { width: min(1100px, 100%); }
+.ps-set { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+.ps-set label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.ps-set input { height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); font-size: 15px; }
+.ps-wrap { overflow: auto; max-height: 42vh; border: 1px solid var(--line); border-radius: 6px; }
+.ps-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ps-tbl th { position: sticky; top: 0; z-index: 1; background: var(--panel); text-align: left; font-size: 12px; color: var(--muted); padding: 6px; border-bottom: 1px solid var(--line); }
+.ps-tbl td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ps-tbl .ps-sp { font-family: var(--font-mono); white-space: nowrap; }
+.ps-desc { display: flex; gap: 4px; min-width: 220px; }
+.ps-desc input { flex: 1; min-width: 0; height: 34px; padding: 0 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--fg); font-size: 15px; }
+.ps-tbl select { height: 34px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--fg); font-size: 14px; }
+.ps-pick { width: 52px; }
+.ps-brk { white-space: nowrap; } .ps-brk select + select { margin-left: 4px; }
+.ps-prev-h { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+.ps-sheet { background: #fff; color: #000; border: 1px solid var(--line); border-radius: 6px; padding: 14px; font-family: Arial, Helvetica, sans-serif; }
+.ps-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-end; border-bottom: 3px solid #000; padding-bottom: 6px; margin-bottom: 6px; font-size: 13px; }
+.ps-title { font-size: 22px; font-weight: 700; text-transform: uppercase; }
+.ps-right { text-align: right; }
+.ps-grid { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.ps-grid th, .ps-grid td { border: 1px solid #000; padding: 3px 6px; height: 24px; color: #000; }
+.ps-grid th { background: #e9ecef; font-size: 11px; text-transform: uppercase; text-align: left; }
+.ps-grid .ps-n { width: 34px; text-align: center; font-weight: 700; }
+.ps-grid .ps-a { width: 56px; text-align: center; font-weight: 700; }
+.ps-grid td.ps-d { font-weight: 600; overflow-wrap: anywhere; }
+.ps-grid .ps-mid { border-right: 3px solid #000; }
+@media print {
+  @page { size: letter portrait; margin: .4in; }
+  body.print-ps { background: #fff !important; overflow: visible; height: auto; }
+  body.print-ps > *:not(#psModal) { display: none !important; }
+  body.print-ps #psModal { position: static; background: none; padding: 0; display: block; }
+  body.print-ps #psModal .modal-card { width: 100%; max-height: none; border: 0; padding: 0; overflow: visible; background: #fff; box-shadow: none; }
+  body.print-ps #psModal .modal-card > :not(#psSheet) { display: none !important; }
+  body.print-ps .ps-sheet { border: 0; padding: 2px 4px; }
+  body.print-ps .ps-title { font-size: 26px; }
+  body.print-ps .ps-head { font-size: 13pt; }
+  body.print-ps .ps-grid { font-size: 12pt; }
+  body.print-ps .ps-grid td { height: min(.5in, calc(8.6in / var(--ps-rows))); padding: 2px 6px; }
+  body.print-ps .ps-grid th, body.print-ps .ps-grid td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
 </style>
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v29<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v31<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="leadBtn" type="button" hidden title="Leadership: job schedule and the master parts sheet">Leadership</button>
@@ -1045,6 +1086,10 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
     <button class="btn" id="bidBtn" type="button" title="Straight to the bid sheet: labor hours and price. The proposal is one tab over.">
       <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 1.5v13M11 4.5H6.5a2 2 0 0 0 0 4h3a2 2 0 0 1 0 4H5"/></svg>
       Price &amp; bid
+    </button>
+    <button class="btn" id="psBtn" type="button" title="Panel schedule from the circuits on the plan, to print and post in the panel door">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 1.5h10v13H3z"/><path d="M8 1.5v13M4.8 4.5h1.6M9.6 4.5h1.6M4.8 7.5h1.6M9.6 7.5h1.6M4.8 10.5h1.6M9.6 10.5h1.6"/></svg>
+      Panel schedule
     </button>
 
     <button class="btn" id="coBtn" type="button" title="Change orders: count and price extra work apart from the base bid">
@@ -1728,6 +1773,24 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
       <span class="spacer"></span>
       <button class="btn primary" type="button" id="tsClose">Done</button>
     </div>
+  </div>
+</div>
+
+<div class="modal" id="psModal" hidden role="dialog" aria-modal="true" aria-labelledby="psTitle">
+  <div class="modal-card ps-card">
+    <div class="ts-head"><h2 id="psTitle">Panel schedule</h2><button class="btn primary" type="button" id="psClose">Done</button></div>
+    <p class="hint">Every circuit you drew on the plan is here, in order. Type a description or pick one from the ▾ list, and set the breaker. Odd spaces print on the left, even on the right. A 2-pole breaker takes two spaces on its side.</p>
+    <div class="ps-set">
+      <label>Panel name<input type="text" id="psName" placeholder="Main panel"></label>
+      <label>Main breaker<input type="text" id="psMain" placeholder="e.g. 200A main"></label>
+      <label>Spaces<select id="psSpaces"></select></label>
+      <button class="btn" type="button" id="psAdd" title="A breaker that isn't drawn on the plan, like a spare">+ Add a line</button>
+    </div>
+    <div class="ps-wrap"><table class="ps-tbl" id="psTbl"></table><p class="hint" id="psEmpty" hidden style="padding:10px">No circuits yet. Pick a wire under <b>Wire</b> in the toolbox to start circuit 1, then come back here.</p></div>
+    <datalist id="psList"></datalist>
+    <p class="ps-prev-h">What prints:</p>
+    <div class="ps-sheet" id="psSheet"></div>
+    <div class="actions"><button class="btn primary" type="button" id="psPrint">Print or save PDF</button></div>
   </div>
 </div>
 
@@ -7720,6 +7783,125 @@ function newCircuit(key) {
   if (tool === "run") { runType = null; contRun = null; draft = []; }
   startRunType(w.id); wlCircHint();
 }
+/* Panel schedule (Jonathan 2026-11-28): every circuit drawn on the plan goes on a two-column (odd left, even right) schedule
+   to print and post inside the panel door. Each description can be typed or picked from a list. Saved on the job:
+   job.panel = { name, main, spaces (0 = auto), c: { circuit #: { d, a, p } }, extra: [{ id, d, a, p }] } */
+const PS_PRESETS = [
+  ["Bedrooms", [...Array(10)].map((_, i) => `Bedroom ${i + 1}`).concat(["Master bedroom"])],
+  ["Bathrooms", [...Array(4)].map((_, i) => `Bathroom ${i + 1}`).concat(["Master bath", "Bath fan", "Bath heater"])],
+  ["Kitchen", ["Kitchen left wall", "Kitchen right wall", "Kitchen island", "Kitchen counter", "Kitchen lights", "Refrigerator", "Dishwasher", "Disposal", "Microwave", "Range", "Oven", "Cooktop", "Vent hood", "Freezer"]],
+  ["Laundry", ["Laundry", "Washer", "Dryer"]],
+  ["Living areas", ["Living room", "Family room", "Dining room", "Office", "Bonus room", "Hallway", "Entry", "Stairs", "Closets", "Basement", "Attic", "Mud room"]],
+  ["Heating, cooling and water", ["Furnace", "Air handler", "AC condenser", "Heat pump", "Mini split", "Baseboard heat", "Water heater", "Tankless water heater", "Well pump", "Septic pump", "Sump pump"]],
+  ["Outside and buildings", ["Garage", "Garage door opener", "Barn", "Shop", "Shed", "Porch", "Patio", "Deck", "Exterior lights", "Exterior receptacles", "Landscape lights", "Gate", "Hot tub", "Pool", "EV charger"]],
+  ["Other", ["Lights", "Receptacles", "Smoke detectors", "Sub panel", "Generator", "Surge protector", "Spare", "Space"]]
+];
+const PS_AMPS = [15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100, 125, 150, 175, 200];
+const PS_SPACES = [12, 16, 20, 24, 30, 32, 40, 42, 54, 60];
+let psExample = null;
+function psOf() {
+  const p = job ? (job.panel || (job.panel = {})) : (psExample || (psExample = {}));
+  if (p.name == null) p.name = "Main panel"; p.c = p.c || {}; p.extra = p.extra || []; p.spaces = +p.spaces || 0; if (p.main == null) p.main = "";
+  return p;
+}
+// a breaker to start from, by the wire: 14 = 15A, 12 = 20A, 10 = 30A 2-pole, 8 = 40A 2-pole, 6 = 50A 2-pole; SER/MHF feeders by their amps
+function psGuess(ws) {
+  let a = 0, p = 1;
+  ws.forEach(w => {
+    const fa = /^(SER|MHF) cable\|(\d+)$/.exec(w.preset || "");
+    const ga = fa ? +fa[2] : ({ 14: 15, 12: 20, 10: 30, 8: 40, 6: 50, 4: 70, 2: 90 })[String(w.gauge)] || 20;
+    const gp = fa || ["10", "8", "6", "4", "2"].includes(String(w.gauge)) ? 2 : 1;
+    if (ga > a) a = ga; if (gp > p) p = gp;
+  });
+  return { a: a || 20, p };
+}
+function psRows() {
+  const p = psOf(), by = new Map();
+  wiresList().filter(isCirc).forEach(w => { if (!by.has(w.circ)) by.set(w.circ, []); by.get(w.circ).push(w); });
+  const rows = [...by.keys()].sort((a, b) => a - b).map(n => {
+    const ws = by.get(n), g = psGuess(ws), o = p.c[n] || {};
+    const d = o.d != null ? o.d : (ws.find(w => w.label) || {}).label || "";
+    return { key: "c" + n, circ: n, wires: ws.map(wireShort).filter((x, i, a) => a.indexOf(x) === i).join(" + "), d, a: +o.a || g.a, p: +o.p || g.p };
+  });
+  p.extra.forEach(x => rows.push({ key: "x" + x.id, x, d: x.d || "", a: +x.a || 20, p: +x.p || 1 }));
+  // each breaker takes the lowest open space; a 2-pole one takes that space and the one under it (n and n + 2)
+  const used = new Set();
+  rows.forEach(r => { let s = 1; while (used.has(s) || (r.p > 1 && used.has(s + 2))) s++; r.sp = s; used.add(s); if (r.p > 1) used.add(s + 2); });
+  return rows;
+}
+function psSpaces(rows) {
+  const top = rows.reduce((m, r) => Math.max(m, r.sp + (r.p > 1 ? 2 : 0)), 0), need = Math.max(2, top + (top % 2));
+  const set = psOf().spaces;
+  if (set >= need) return set;
+  return PS_SPACES.find(s => s >= Math.max(need, 20)) || need;
+}
+function psSheetHtml() {
+  const p = psOf(), rows = psRows(), n = psSpaces(rows), at = {};
+  rows.forEach(r => { at[r.sp] = r; if (r.p > 1) at[r.sp + 2] = { cont: true }; });
+  const side = (s, left) => {
+    const r = at[s], num = `<td class="ps-n">${s}</td>`;
+    if (r && r.cont) return left ? num : num; // the 2-pole cell above covers the description and breaker
+    const span = r && r.p > 1 ? ` rowspan="2"` : "";
+    const dsc = `<td class="ps-d${r && r.p > 1 ? " ps-2p" : ""}"${span}>${r ? esc(r.d) || "&nbsp;" : ""}</td>`;
+    const amp = `<td class="ps-a${left ? " ps-mid" : ""}"${span}>${r ? `${r.a}${r.p > 1 ? "/2" : ""}` : ""}</td>`;
+    return left ? num + dsc + amp : amp + dsc + num;
+  };
+  let body = "";
+  for (let i = 1; i <= n; i += 2) body += `<tr>${side(i, true)}${side(i + 1, false)}</tr>`;
+  const addr = job && job.address ? ` · ${esc(job.address)}` : "";
+  return `<div class="ps-head"><div><div class="ps-title">${esc(p.name || "Panel")}</div><div>${esc(job ? job.name : "Example job")}${addr}</div></div>
+    <div class="ps-right">${p.main ? `<div><b>Main:</b> ${esc(p.main)}</div>` : ""}<div>${n} spaces · ${new Date().toLocaleDateString()}</div><div>AJ Electrical</div></div></div>
+    <table class="ps-grid" style="--ps-rows:${n / 2}"><thead><tr><th class="ps-n">#</th><th>Circuit</th><th class="ps-a ps-mid">Amps</th><th class="ps-a">Amps</th><th>Circuit</th><th class="ps-n">#</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+function psOpts(sel, list, fmt) { return list.map(v => `<option value="${v}"${+sel === v ? " selected" : ""}>${fmt ? fmt(v) : v}</option>`).join(""); }
+function renderPanel() {
+  const p = psOf(), rows = psRows(), lock = fieldMode;
+  $("psName").value = p.name; $("psMain").value = p.main;
+  $("psSpaces").innerHTML = `<option value="0">Auto (${psSpaces(rows.map(r => r))})</option>` + psOpts(p.spaces, PS_SPACES);
+  if (!p.spaces) $("psSpaces").value = "0";
+  [$("psName"), $("psMain"), $("psSpaces"), $("psAdd")].forEach(e => e.disabled = lock);
+  const pick = `<option value="">▾</option>` + PS_PRESETS.map(([g, l]) => `<optgroup label="${esc(g)}">${l.map(v => `<option>${esc(v)}</option>`).join("")}</optgroup>`).join("");
+  $("psEmpty").hidden = rows.length > 0;
+  $("psTbl").innerHTML = !rows.length ? "" : `<thead><tr><th>Space</th><th>Circuit on the plan</th><th>Description</th><th>Breaker</th><th></th></tr></thead><tbody>` + rows.map(r => `<tr data-k="${r.key}">
+      <td class="ps-sp">${r.sp}${r.p > 1 ? `, ${r.sp + 2}` : ""}</td>
+      <td>${r.x ? "<i>Added line</i>" : `<span class="cnt-num">${r.circ}</span> ${esc(r.wires)}`}</td>
+      <td><div class="ps-desc"><input type="text" class="ps-in" value="${esc(r.d)}" placeholder="Type or pick ▾" list="psList" aria-label="Description"><select class="ps-pick" aria-label="Pick a description">${pick}</select></div></td>
+      <td class="ps-brk"><select class="ps-amp" aria-label="Breaker amps">${psOpts(r.a, PS_AMPS, v => v + "A")}</select><select class="ps-pole" aria-label="Poles"><option value="1"${r.p === 1 ? " selected" : ""}>1 pole</option><option value="2"${r.p > 1 ? " selected" : ""}>2 pole</option></select></td>
+      <td>${r.x ? `<button class="btn sm" type="button" data-del="${r.x.id}">Delete</button>` : ""}</td></tr>`).join("") + `</tbody>`;
+  if (!$("psList").childElementCount) $("psList").innerHTML = PS_PRESETS.flatMap(([, l]) => l).map(v => `<option value="${esc(v)}">`).join("");
+  $("psTbl").querySelectorAll("input, select, button").forEach(e => e.disabled = lock);
+  $("psSheet").innerHTML = psSheetHtml();
+}
+function psSet(key, k, v, redraw) {
+  const p = psOf();
+  if (key[0] === "c") { const o = p.c[key.slice(1)] || (p.c[key.slice(1)] = {}); o[k] = v; }
+  else { const x = p.extra.find(e => "x" + e.id === key); if (x) x[k] = v; }
+  touchJob();
+  if (redraw) renderPanel(); else $("psSheet").innerHTML = psSheetHtml();
+}
+$("psTbl").addEventListener("input", e => { const tr = e.target.closest("tr"); if (tr && e.target.classList.contains("ps-in")) psSet(tr.dataset.k, "d", e.target.value); });
+$("psTbl").addEventListener("change", e => {
+  const tr = e.target.closest("tr"), t = e.target; if (!tr) return;
+  if (t.classList.contains("ps-pick")) { if (!t.value) return; tr.querySelector(".ps-in").value = t.value; psSet(tr.dataset.k, "d", t.value); t.value = ""; }
+  else if (t.classList.contains("ps-amp")) psSet(tr.dataset.k, "a", +t.value);
+  else if (t.classList.contains("ps-pole")) psSet(tr.dataset.k, "p", +t.value, true); // a 2-pole breaker moves the spaces after it
+});
+$("psTbl").addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (!b) return; const p = psOf(); p.extra = p.extra.filter(x => x.id !== b.dataset.del); touchJob(); renderPanel(); });
+$("psName").oninput = () => { psOf().name = $("psName").value; touchJob(); $("psSheet").innerHTML = psSheetHtml(); };
+$("psMain").oninput = () => { psOf().main = $("psMain").value; touchJob(); $("psSheet").innerHTML = psSheetHtml(); };
+$("psSpaces").onchange = () => { psOf().spaces = +$("psSpaces").value; touchJob(); renderPanel(); };
+$("psAdd").onclick = () => { psOf().extra.push({ id: uid(), d: "", a: 20, p: 1 }); touchJob(); renderPanel(); const ins = $("psTbl").querySelectorAll(".ps-in"); if (ins.length) ins[ins.length - 1].focus(); };
+$("psBtn").onclick = () => { renderPanel(); $("psModal").hidden = false; };
+$("psClose").onclick = () => { $("psModal").hidden = true; };
+$("psModal").addEventListener("keydown", e => { if (e.key === "Escape") $("psModal").hidden = true; });
+$("psPrint").onclick = () => {
+  $("psSheet").innerHTML = psSheetHtml();
+  document.body.classList.add("print-ps");
+  const done = () => { document.body.classList.remove("print-ps"); window.removeEventListener("afterprint", done); };
+  window.addEventListener("afterprint", done);
+  try { window.print(); } catch (e) { done(); toast("Printing isn't allowed here."); }
+  setTimeout(done, 60000);
+};
 /* Start new estimate (Jonathan 2026-11-22): walk the plans one category at a time so nothing gets missed.
    Saved on the job (job.guide = { at, st: { step key: "done" | "skip" } }), so it picks up where you left off. */
 const GUIDE = [
