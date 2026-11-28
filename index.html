@@ -11693,14 +11693,17 @@ function schedSave(id, now) {
 /* the bid's hours always split the same way (Jonathan 2026-11-25: "70% of the hours go the rough in and the service has 10%
    and 20% for the trim out. this should let them schedule each section independently"). Each part keeps its own start date,
    crew and hours a day; loading the bid again only changes the hours. Parts someone added by hand are left alone. */
-const SCHED_SPLIT = [["Rough-in", 70], ["Service", 10], ["Trim-out", 20]];
+// 2026-11-28 Jonathan: "it should be auto generating 70 % of the hours for rough in and 30% for trim out". Service is a plain row you can add.
+const SCHED_SPLIT = [["Rough-in", 70], ["Trim-out", 30]];
 const splitKey = n => String(n || "").toLowerCase().replace(/[^a-z]/g, "").replace(/out$/, "");
 const splitPct = n => (SCHED_SPLIT.find(([k]) => splitKey(k) === splitKey(n)) || [])[1];
 function schedLoad(j) {
   const e = leadSched[j.id] = schedEntry(j.id), h = jobHoursOf(j);
   if (!h) return leadSay(`${j.name} doesn't have man hours yet. Open the job, price it on the Residential price or Bid sheet, and it saves its hours here by itself.`, true);
   e.phases = e.phases.filter(p => !(p.name === "Whole job" && !p.start)); // the old single bar, never given a date
-  // the bid's underground hours go to Underground first; the rest splits 70 / 10 / 20
+  // the bid's underground hours go to Underground first; the rest splits 70 / 30
+  // a Service row left over from the old 70/10/20 split, with no date or guys yet, goes away so the hours add up
+  e.phases = e.phases.filter(p => !(splitKey(p.name) === "service" && !p.start && !(p.men || []).length));
   const ug = Math.round((+h.ug || 0) * 10) / 10, rest = h.h - ug;
   if (ug > 0) {
     let p = e.phases.find(x => splitKey(x.name) === "underground");
@@ -11713,8 +11716,8 @@ function schedLoad(j) {
     p.hours = Math.round(rest * pct / 100 * 10) / 10;
   });
   e.bidHours = h.h; e.loaded = new Date().toISOString();
-  leadSay(ug > 0 ? `Loaded ${fmtH(h.h)} man hours from ${h.from}: Underground ${fmtH(ug)} from the bid's underground, then the other ${fmtH(rest)} split Rough-in 70%, Service 10%, Trim-out 20%. Pick a start date for each one.`
-    : `Loaded ${fmtH(h.h)} man hours from ${h.from}: Rough-in 70%, Service 10%, Trim-out 20%. The bid has no underground hours. Pick a start date for each one.`);
+  leadSay(ug > 0 ? `Loaded ${fmtH(h.h)} man hours from ${h.from}: Underground ${fmtH(ug)} from the bid's underground, then the other ${fmtH(rest)} split Rough-in 70%, Trim-out 30%. Pick a start date for each one.`
+    : `Loaded ${fmtH(h.h)} man hours from ${h.from}: Rough-in 70%, Trim-out 30%. The bid has no underground hours. Pick a start date for each one.`);
   schedSave(j.id); schedDraw();
 }
 function schedDraw() {
@@ -11740,7 +11743,7 @@ function schedDraw() {
       ${open ? `<div class="ld-ed">
         <div class="adm-picks"><button class="btn sm primary" type="button" data-a="load"${h ? "" : " disabled"}>Load hours from the bid${h ? ` (${fmtH(h.h)})` : ""}</button>
           <button class="btn sm" type="button" data-a="add">+ Add a phase</button>
-          ${[...SCHED_SPLIT, ["Underground"]].filter(([n]) => !ph.some(p => splitKey(p.name) === splitKey(n))).map(([n]) => `<button class="btn sm" type="button" data-addn="${n}">+ ${n}</button>`).join("")}</div>
+          ${[...SCHED_SPLIT, ["Underground"], ["Service"]].filter(([n]) => !ph.some(p => splitKey(p.name) === splitKey(n))).map(([n]) => `<button class="btn sm" type="button" data-addn="${n}">+ ${n}</button>`).join("")}</div>
         ${e.loaded ? `<div class="hint">Hours loaded from the bid ${whenSaved(e.loaded)}${e.bidHours != null && h && Math.abs(h.h - e.bidHours) > .05 ? `. <b>The bid has changed to ${fmtH(h.h)} hours since</b>; load them again to update.` : "."} Days = man hours ÷ (crew × hours a day), weekdays only.</div>` : `<div class="hint">Days = man hours ÷ (crew × hours a day), weekdays only. Load the bid's hours, or type them.</div>`}
         <div class="trk-wrap"><table class="ld-tbl"><thead><tr><th>Phase</th><th>Start</th><th class="n">Man hours</th><th class="n">Crew</th><th class="n">Hrs/day</th><th class="n">Days</th><th>Finish</th><th>Done</th><th></th></tr></thead><tbody>
         ${ph.map((p, i) => `<tr data-i="${i}"><td><input data-f="name" value="${escH(p.name)}" maxlength="40" aria-label="Phase name"></td>
