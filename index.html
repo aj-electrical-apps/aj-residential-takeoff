@@ -967,7 +967,9 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 .ld-cal .ld-hd.today { background: var(--accent-soft); color: var(--fg); }
 .ld-cal .ld-lbl { grid-column: 1; padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px dashed var(--line); }
 .ld-cal .ld-lbl small { color: var(--muted); }
-.ld-cal .ld-bar { margin: 3px 1px; border-radius: 5px; background: var(--accent); color: var(--accent-fg, #fff); font-weight: 700; text-align: center; line-height: 18px; cursor: pointer; overflow: hidden; }
+.ld-cal .ld-bar { margin: 3px 1px; border-radius: 5px; background: var(--accent); color: var(--accent-fg, #fff); font-weight: 700; text-align: center; line-height: 18px; cursor: grab; overflow: hidden; touch-action: none; user-select: none; }
+.ld-cal .ld-bar.dragging { cursor: grabbing; opacity: .85; box-shadow: 0 4px 12px rgba(0,0,0,.35); position: relative; z-index: 3; }
+.ld-drag-tip { position: fixed; z-index: 9999; pointer-events: none; background: #111; color: #fff; font-size: 12px; padding: 3px 7px; border-radius: 5px; white-space: nowrap; }
 .ld-cal .ld-bar.ph-roughin { background: #2f9e44; color: #fff; } /* Jonathan 2026-11-25: rough-in green */
 .ld-cal .ld-bar.ph-service { background: #e8590c; color: #fff; }
 .ld-cal .ld-bar.ph-trim { background: #1c7ed6; color: #fff; } /* Jonathan 2026-11-25: trim-out blue */
@@ -1072,7 +1074,7 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v32<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v33<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="leadBtn" type="button" hidden title="Leadership: job schedule and the master parts sheet">Leadership</button>
@@ -1602,7 +1604,7 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
     <h2 id="leadTitle">Leadership</h2>
     <div class="adm-tabs" role="tablist"><button type="button" role="tab" data-lt="sched" aria-selected="true">Schedule</button><button type="button" role="tab" data-lt="crew" aria-selected="false">Crew list</button><button type="button" role="tab" data-lt="master" aria-selected="false">Master parts sheet</button></div>
     <section id="leadSched">
-      <div class="ld-calbar"><button class="btn sm" type="button" id="leadPrev" aria-label="Earlier weeks">◀</button><button class="btn sm" type="button" id="leadToday">This week</button><button class="btn sm" type="button" id="leadNext" aria-label="Later weeks">▶</button><b id="leadWk"></b><span class="hint">Each bar shows the men on that crew. Click a bar to open its job.</span></div>
+      <div class="ld-calbar"><button class="btn sm" type="button" id="leadPrev" aria-label="Earlier weeks">◀</button><button class="btn sm" type="button" id="leadToday">This week</button><button class="btn sm" type="button" id="leadNext" aria-label="Later weeks">▶</button><b id="leadWk"></b><span class="hint">Slide a bar left or right to move its dates. Click a bar to open its job.</span></div>
       <div class="ld-legend"><span><i style="background:#2f9e44"></i>Rough-in</span><span><i style="background:#8b5a2b"></i>Underground</span><span><i style="background:#e8590c"></i>Service</span><span><i style="background:#1c7ed6"></i>Trim-out</span><span><i style="background:#adb5bd"></i>Done</span><span><span class="ld-nocrew-mark">!</span>No guys picked yet</span></div>
       <div class="trk-wrap ld-calwrap" id="leadCal"></div>
       <div class="ld-calbar"><input type="search" id="leadSearch" placeholder="Find a job" aria-label="Find a job"><span class="adm-picks" id="leadFilter"><button type="button" data-lf="all" aria-pressed="true">All jobs</button><button type="button" data-lf="on" aria-pressed="false">Scheduled</button><button type="button" data-lf="off" aria-pressed="false">Not scheduled</button></span></div>
@@ -11848,13 +11850,13 @@ function schedCal() {
   const days = []; for (let w = 0; w < 6; w++) for (let d = 0; d < 5; d++) { const x = new Date(mon); x.setDate(mon.getDate() + w * 7 + d); days.push(x); }
   const today = ymd(new Date()), idx = new Map(days.map((d, i) => [ymd(d), i])), men = days.map(() => 0);
   const rows = [];
-  leadJobs.forEach(j => (schedEntry(j.id).phases || []).forEach(p => {
+  leadJobs.forEach(j => (schedEntry(j.id).phases || []).forEach((p, pi) => {
     const s = dOf(p.start), n = phDays(p); if (!s || !n) return;
     let d = workDay(s), cols = [];
     for (let k = 0; k < n; k++) { if (k) d = addWork(d, 1); const i = idx.get(ymd(d)); if (i != null) cols.push(i); }
     if (!cols.length) return;
     if (!p.done) cols.forEach(i => { men[i] += +p.crew || 0; });
-    rows.push({ j, p, a: cols[0], b: cols[cols.length - 1] });
+    rows.push({ j, p, pi, a: cols[0], b: cols[cols.length - 1] });
   }));
   rows.sort((x, y) => x.a - y.a || x.b - y.b);
   $("leadWk").textContent = `${days[0].toLocaleDateString([], { month: "short", day: "numeric" })} to ${days[days.length - 1].toLocaleDateString([], { month: "short", day: "numeric" })}`;
@@ -11863,12 +11865,41 @@ function schedCal() {
   rows.forEach(r => {
     h += `<div class="ld-lbl" title="${escH(r.j.name)} · ${escH(r.p.name)}">${escH(r.j.no ? r.j.no + " " : "")}${escH(r.j.name)} <small>${escH(r.p.name)}</small></div>`;
     const nobody = !r.p.done && !(r.p.men || []).length;
-    h += `<div class="ld-bar ph-${splitKey(r.p.name)}${r.p.done ? " done" : ""}${nobody ? " nocrew" : ""}" style="grid-column:${r.a + 2} / ${r.b + 3}" data-job="${escH(r.j.id)}" title="${escH(r.p.name)}: ${fmtH(+r.p.hours || 0)} man hours, ${r.p.crew} men, ${phDays(r.p)} days${(r.p.men || []).length ? " · " + escH(menNames(r.p).join(", ")) : " · NO GUYS PICKED YET"}">${nobody ? `<span class="ld-nocrew-mark" aria-label="No guys picked">!</span>` : ""}${r.p.crew}${(r.p.men || []).length ? ` <span class="ld-barmen">${escH(menNames(r.p).map(n => n.split(" ")[0]).join(", "))}</span>` : ""}</div>`;
+    h += `<div class="ld-bar ph-${splitKey(r.p.name)}${r.p.done ? " done" : ""}${nobody ? " nocrew" : ""}" style="grid-column:${r.a + 2} / ${r.b + 3}" data-job="${escH(r.j.id)}" data-pi="${r.pi}" title="${escH(r.p.name)}: ${fmtH(+r.p.hours || 0)} man hours, ${r.p.crew} men, ${phDays(r.p)} days${(r.p.men || []).length ? " · " + escH(menNames(r.p).join(", ")) : " · NO GUYS PICKED YET"}">${nobody ? `<span class="ld-nocrew-mark" aria-label="No guys picked">!</span>` : ""}${r.p.crew}${(r.p.men || []).length ? ` <span class="ld-barmen">${escH(menNames(r.p).map(n => n.split(" ")[0]).join(", "))}</span>` : ""}</div>`;
   });
   if (!rows.length) h += `<div class="ld-lbl hint" style="grid-column: 1 / -1">Nothing scheduled in these weeks. Open a job below, load its hours and pick a start date.</div>`;
   h += `<div class="ld-lbl ld-men">Men out</div>` + men.map(m => `<div class="ld-men${m ? "" : " zero"}">${m || ""}</div>`).join("") + `</div>`;
   box.innerHTML = h;
-  box.querySelectorAll("[data-job]").forEach(b => b.onclick = () => { leadOpenId = b.dataset.job; leadFilter = "all"; schedDraw(); const li = $("leadJobs").querySelector("li.open"); if (li) li.scrollIntoView({ block: "nearest" }); });
+  const openJob = id => { leadOpenId = id; leadFilter = "all"; schedDraw(); const li = $("leadJobs").querySelector("li.open"); if (li) li.scrollIntoView({ block: "nearest" }); };
+  box.querySelectorAll("[data-job]").forEach(b => barDrag(b, days, openJob));
+}
+/* slide a bar to move its phase (Jonathan 2026-11-28: "I need to be able to slide these to adjust the schedule").
+   The bar moves by whole weekdays and keeps its length; a tap without sliding still opens the job. Mouse and touch. */
+const moveWork = (d, n) => { d = workDay(d); const step = n < 0 ? -1 : 1; n = Math.abs(n); while (n > 0) { d.setDate(d.getDate() + step); if (d.getDay() !== 0 && d.getDay() !== 6) n--; } return d; };
+function barDrag(bar, days, openJob) {
+  const id = bar.dataset.job, pi = +bar.dataset.pi;
+  bar.onpointerdown = ev => {
+    if (ev.button > 0) return;
+    const e = leadSched[id], p = e && e.phases[pi]; if (!p) return;
+    const hd = $("leadCal").querySelectorAll(".ld-hd"), colW = hd[1] ? hd[1].getBoundingClientRect().width : 24;
+    const x0 = ev.clientX, start = dOf(p.start); let moved = false, n = 0, tip = null;
+    bar.setPointerCapture(ev.pointerId);
+    bar.onpointermove = m => {
+      const dx = m.clientX - x0;
+      if (!moved && Math.abs(dx) < 6) return;
+      if (!moved) { moved = true; bar.classList.add("dragging"); tip = document.createElement("div"); tip.className = "ld-drag-tip"; document.body.appendChild(tip); }
+      n = Math.round(dx / colW); bar.style.transform = `translateX(${n * colW}px)`;
+      const ns = moveWork(start, n), ne = addWork(ns, phDays(p) - 1);
+      tip.textContent = `${p.name}: ${shortDay(ns)} to ${shortDay(ne)}`; tip.style.left = m.clientX + 12 + "px"; tip.style.top = m.clientY - 30 + "px";
+    };
+    const end = () => {
+      bar.onpointermove = bar.onpointerup = bar.onpointercancel = null; if (tip) tip.remove();
+      if (!moved) return openJob(id);
+      if (n) { p.start = ymd(moveWork(start, n)); schedSave(id); leadSay(`${p.name} moved to start ${shortDay(dOf(p.start))}.`); if (leadOpenId === id) schedDraw(); }
+      schedCal();
+    };
+    bar.onpointerup = end; bar.onpointercancel = () => { moved = true; n = 0; end(); };
+  };
 }
 $("leadPrev").onclick = () => { leadWeek -= 2; schedCal(); };
 $("leadNext").onclick = () => { leadWeek += 2; schedCal(); };
