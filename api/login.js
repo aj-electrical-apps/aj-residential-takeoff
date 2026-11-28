@@ -1,6 +1,18 @@
 import { secret, makeSession, cookieLine, norm, same, permsFor, personPerms, roleKey } from "../lib/session.js";
 import { loadTeam, saveUsers, hashPassword, checkPassword, loginOf } from "../lib/team-store.js";
 import { randomBytes } from "node:crypto";
+import { isTest } from "../lib/safety.js";
+
+// TEST copy only (preview links): an empty test store gets a "Test Admin" sign-in, password = TEST_ADMIN_PASSWORD (Preview env var).
+// Never runs on the live app.
+async function testTeam() {
+  const team = await loadTeam(), pw = String(process.env.TEST_ADMIN_PASSWORD || "").trim();
+  if (!isTest() || !pw || team.users.length) return team;
+  const now = new Date().toISOString();
+  const u = { id: randomBytes(6).toString("hex"), name: "Test Admin", login: loginOf("Test Admin"), role: "admin", ...hashPassword(pw), v: 0, added: now, by: "Test copy setup", changed: now };
+  await saveUsers([u], "Test copy setup", team.positions);
+  return { users: [u], positions: team.positions };
+}
 
 // The sign-in page (login.html) talks to this.
 // GET  -> { signin, setup, appPw }   setup: nobody has been added yet, so the page offers to make the first admin
@@ -9,7 +21,7 @@ const H = { "Cache-Control": "no-store" };
 const slow = () => new Promise(r => setTimeout(r, 600)); // makes guessing passwords slow
 export async function GET() {
   try {
-    const key = secret(), users = key ? (await loadTeam()).users : [];
+    const key = secret(), users = key ? (await testTeam()).users : [];
     return Response.json({ signin: !!key, setup: !!key && !users.length, appPw: !!norm(process.env.APP_PASSWORD) }, { headers: H });
   } catch (e) { return Response.json({ error: e.message }, { status: 500, headers: H }); }
 }
@@ -19,7 +31,7 @@ export async function POST(request) {
     if (!key) return Response.json({ error: "Sign-in isn't turned on yet (SESSION_SECRET isn't set in Vercel)." }, { status: 400, headers: H });
     const b = await request.json().catch(() => ({}));
     const name = String(b.name || "").trim().replace(/\s+/g, " ").slice(0, 30), pw = String(b.password || "");
-    const { users, positions } = await loadTeam();
+    const { users, positions } = await testTeam();
     let who = null;
     if (b.setup) {
       if (users.length) return Response.json({ error: "The first admin is already set up. Sign in instead." }, { status: 400, headers: H });

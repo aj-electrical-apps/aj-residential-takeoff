@@ -1,7 +1,10 @@
 // Keeps AJ Takeoff on the device so it opens without internet (Jonathan 2026-10-30: "work without service").
 // The page always comes from the website when there's internet (so updates arrive) and from this copy when there isn't.
 // Jobs themselves are already kept in the browser; the app saves changes online when WiFi is back.
-const PAGE = "aj-page", LIBS = "aj-libs";
+// A TEST copy (preview link, registered as sw.js?test=1) keeps its own offline copy under its own names, so it can
+// never be mixed up with the live app's (each link is also its own website to the browser, which keeps them apart too).
+const TEST = new URL(self.location.href).searchParams.get("test") === "1";
+const PAGE = TEST ? "aj-TEST-page" : "aj-page", LIBS = TEST ? "aj-TEST-libs" : "aj-libs";
 async function keepPage() {
   try {
     const r = await fetch("/", { cache: "no-store", credentials: "same-origin" });

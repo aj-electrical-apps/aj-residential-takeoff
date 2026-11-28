@@ -1,4 +1,5 @@
 import { secret, readSession, basicWho, norm, same, has } from "./lib/session.js";
+import { testCopyProblem, offPage, isTest } from "./lib/safety.js";
 
 // Who can open AJ Takeoff.
 // With SESSION_SECRET set (Vercel environment variable, any long random text): everyone signs in on /login.html
@@ -24,8 +25,19 @@ function needs(path, method) {
 }
 const fieldBlocked = (path, method) => FIELD_BLOCKED.some(r => r.test(path)) || (["/api/jobs", "/api/settings"].includes(path) && method !== "GET");
 
+// The test copy's install name, so a test copy added to a home screen never looks like the live app
+const TEST_MANIFEST = { name: "TEST copy - AJ Residential", short_name: "TEST AJ Res", start_url: "/", scope: "/", display: "standalone", background_color: "#fff7ed", theme_color: "#c2410c",
+  icons: [{ src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any maskable" }, { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }] };
+
 export default async function middleware(request) {
-  const key = secret(), url = new URL(request.url), path = url.pathname;
+  const url = new URL(request.url), path = url.pathname;
+  // Preview links are TEST copies: turned off if they ever point at real data or real logins (lib/safety.js)
+  const bad = testCopyProblem();
+  if (bad) return path.startsWith("/api/") ? json({ error: "This test copy is turned off because " + bad + "." }, 503) : offPage(bad);
+  // the app and sign-in page ask this to show the orange TEST COPY bar
+  if (path === "/api/env") return json({ test: isTest() }, 200);
+  if (path === "/manifest.webmanifest" && isTest()) return new Response(JSON.stringify(TEST_MANIFEST), { headers: { "Content-Type": "application/manifest+json", "Cache-Control": "no-store" } });
+  const key = secret();
   if (!key) return oldGate(request, path);
   if (OPEN.some(r => r.test(path))) return;
   const who = await readSession(key, request.headers.get("cookie")) || await basicWho(request, key);
