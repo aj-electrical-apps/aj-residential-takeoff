@@ -553,6 +553,7 @@ html.look-new body { font-family: var(--font-ui); }
 .fco-tbl tr.fco-todo td { background: #fff9db; }
 .fco-tbl tr.fco-free td:nth-child(2) { color: var(--muted, #868e96); }
 .fco-tbl .fco-amt { width: 90px; height: 30px; text-align: right; padding: 0 6px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg); color: var(--fg); }
+.co-free td:first-child { color: #1971c2; }
 .fco-pick { display: inline-flex; gap: 4px; white-space: nowrap; }
 .fco-pick .btn[aria-pressed="true"][data-c="charge"] { background: #d3f9d8; border-color: #2f9e44; color: #0b3d17; }
 .fco-pick .btn[aria-pressed="true"][data-c="free"] { background: #e7f5ff; border-color: #1971c2; color: #0b3a66; }
@@ -1072,7 +1073,7 @@ tr.ld-pedit > td { background: var(--panel, rgba(0,0,0,.03)); padding: 6px 10px 
 
 <div class="app">
   <header class="toolbar" role="toolbar" aria-label="Main toolbar">
-    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v32<span id="brandPos"></span></small></div>
+    <div class="brand"><svg class="brand-logo" viewBox="0 0 680 540" aria-hidden="true"><path fill="#3a62c8" d="M210,18 L300,18 L365,152 L243,152 L184,312 L150,328 L222,328 L140,526 L22,526 Z"/><path fill="#1c2233" d="M372,162 L514,524 L456,524 L426,442 L212,442 L347,265 L293,265 Z"/><path fill="#3a62c8" d="M545,40 L640,40 L640,410 C640,480 590,525 520,525 L514,525 L490,462 C527,458 545,440 545,400 Z"/></svg>AJ Residential <small>Takeoff · v33<span id="brandPos"></span></small></div>
     <button class="btn sm look-btn" id="lookBtn" type="button" title="Switch between the new look and the classic look. Nothing else changes.">Classic look</button>
     <button class="btn sm look-btn" id="meBtn" type="button" hidden title="Who is signed in, sign out, and the Admin page">Admin</button>
     <button class="btn sm look-btn" id="leadBtn" type="button" hidden title="Leadership: job schedule and the master parts sheet">Leadership</button>
@@ -3549,7 +3550,11 @@ const wAt = (pg, x, y) => { if (!pg.rooms || !pg.rooms.length) return 1; const m
    and runs are tagged with it, and every count, material list, bid and proposal shows only that change order. */
 const coList = () => job ? (job.cos || (job.cos = [])) : [];
 const coCur = () => coScope && job ? coList().find(c => c.id === coScope) || null : null;
-const inScope = x => (x.co || null) === (coScope || null);
+/* No charge items on an office change order (Jonathan 2026-11-28): c.free = { id: true } for a symbol type or a wire type.
+   While the bid is worked out (bidRows), freeSkip holds those ids so their labor and footage stay off the price. */
+let freeSkip = null;
+const inScope = x => (x.co || null) === (coScope || null) && !(freeSkip && (freeSkip.has(x.t) || freeSkip.has(x.typeId)));
+const coFreeIds = () => { const c = coCur(); return c && !c.field && c.free ? Object.keys(c.free).filter(k => c.free[k]) : []; };
 const coLabel = c => `Change order #${c.n}${c.name ? ": " + c.name : ""}`;
 const qtyOn = (pg, id) => pg.devices.reduce((n, v) => n + (v.t === id && inScope(v) ? wAt(pg, v.x, v.y) : 0), 0);
 const runPx = (pg, r) => {
@@ -5023,6 +5028,10 @@ function laborKeyForMat(name) {
   return null;
 }
 function bidRows() {
+  const f = coFreeIds(); if (!f.length) return bidRowsAll();
+  freeSkip = new Set(f); try { return bidRowsAll(); } finally { freeSkip = null; }
+}
+function bidRowsAll() {
   const { counts } = takeoffRows(), { mat } = supplierRows(), b = bidOf(), rows = [];
   const mk = (key, sec, name, qty, unit, code) => {
     const r = code ? laborRow(code) : null, base = rowHours(r), ov = b.over[key];
@@ -5326,7 +5335,13 @@ function renderProp() {
     return `<span class="pr-vwrap"><select class="pr-vendor pr-vsel" data-vsel="${attrs.replace(/"/g, "")}" aria-label="${ph}"><option value="">${ph}</option>${l.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("")}<option value="__other"${other ? " selected" : ""}>Unlisted, type it in</option></select><input class="bid-ln pr-other" ${attrs} data-f="${f}" value="${other ? esc(v) : ""}" placeholder="Name" aria-label="${ph} name"${other ? "" : " hidden"}></span>`;
   };
   const row = (label, val, cls = "") => `<tr class="${cls}"><td>${label}</td><td></td><td class="n"><b>${fmt$(val)}</b></td></tr>`;
+  const nFree = coCur() ? coInstall().filter(x => x[3]).length : 0;
   let h = `<tbody>
+  ${coCur() ? `<tr class="sec"><td colspan="3">Installing on this change order: Charge or No charge</td></tr>
+  <tr class="no-print"><td colspan="3"><small>Everything placed and drawn on this change order. Pick <b>No charge</b> on anything you're giving them free: its labor comes off the price, and the proposal says No charge next to it. Set the material quotes below for what you are charging for.</small></td></tr>
+  ${(() => { const li = coInstall(); if (!li.length) return `<tr><td colspan="3"><p class="hint">Nothing placed or drawn on this change order yet.</p></td></tr>`;
+    return li.map(([k, v, key, free]) => { const on = c => (free ? c === "free" : c === "charge") ? ' aria-pressed="true"' : ' aria-pressed="false"';
+      return `<tr class="${free ? "co-free" : ""}"><td>${esc(k)}</td><td class="n">${esc(v)}${free ? " · No charge" : ""}</td><td class="n">${key ? `<span class="fco-pick no-print"><button class="btn sm" type="button" data-cofree="${esc(key)}" data-c="charge"${on("charge")}>Charge</button><button class="btn sm" type="button" data-cofree="${esc(key)}" data-c="free"${on("free")}>No charge</button></span>` : `<small>imported</small>`}</td></tr>`; }).join(""); })()}` : ""}
   <tr class="sec"><td colspan="3">Supplier quotes <button class="btn sm no-print" type="button" id="prLists" style="float:right">${prShowLists ? "Close name lists" : "Edit name lists"}</button></td></tr>
   ${prShowLists ? `<tr class="no-print"><td colspan="3"><div class="pr-lists">${Object.keys(VLISTS).map(k => `<label>${VLISTS[k].title} (one per line)<textarea rows="8" data-vl="${k}">${esc(vendors(k).join("\n"))}</textarea></label>`).join("")}</div><button class="btn sm primary" type="button" id="prListsSave">Save the lists</button> <button class="btn sm" type="button" id="prListsReset">Put back the starting names</button></td></tr>` : ""}
   <tr class="pr-head"><td>Item</td><td class="n">Supplier · National account · Quote $</td><td class="n">VE price $ · use VE</td></tr>
@@ -5336,7 +5351,7 @@ function renderProp() {
   ${p.subs.map((s, i) => `<tr><td><input class="bid-ln" data-s="${i}" data-f="name" value="${esc(s.name)}" aria-label="Sub name"> <button class="btn sm no-print" type="button" data-sdel="${i}">Delete</button></td><td class="n">${vendorIn(`data-s="${i}"`, s.vendor, "Sub company", subList(s.name))} ${money(s.amt, `data-s="${i}" data-f="amt" aria-label="${esc(s.name)} quote"`)}</td><td class="n">${money(s.ve, `data-s="${i}" data-f="ve" aria-label="${esc(s.name)} VE price"`)} <input type="checkbox" data-s="${i}" data-f="useVe"${s.useVe ? " checked" : ""} aria-label="Use VE price for ${esc(s.name)}"></td></tr>`).join("")}
   <tr class="no-print"><td colspan="3"><button class="btn sm" type="button" id="prAddS">+ Add a sub</button></td></tr>
   <tr class="sec"><td colspan="3">Totals</td></tr>
-  ${row(`Labor from the bid sheet (${fmtH(tt.hrs)} man hours at $${tt.rate})`, tt.labor)}
+  ${row(`Labor from the bid sheet (${fmtH(tt.hrs)} man hours at $${tt.rate})${nFree ? ` <small>· ${nFree} No charge line${nFree === 1 ? "" : "s"} left off</small>` : ""}`, tt.labor)}
   <tr><td>Labor markup <input type="number" class="ts-pct" min="0" max="200" step="0.5" data-mk="labor" value="${p.mk.labor || ""}" placeholder="0"> %</td><td></td><td class="n">${fmt$(tt.laborUp)}</td></tr>
   ${row("Supplier material (quotes, with VE where picked)", tt.mat)}
   <tr><td>Material markup <input type="number" class="ts-pct" min="0" max="200" step="0.5" data-mk="mat" value="${p.mk.mat || ""}" placeholder="0"> %</td><td></td><td class="n">${fmt$(tt.matUp)}</td></tr>
@@ -5374,7 +5389,6 @@ function renderProp() {
     <label>Bid date<input type="date" data-j="bidDate" value="${esc(job ? job.bidDate || "" : "")}"></label>
     <label>Price good for (days)<input type="number" min="1" data-i="valid" value="${p.info.valid || 30}"></label>
     <label class="wide">Scope of work<textarea data-i="scope" rows="3" placeholder="A few lines about the job, like: Furnish and install the electrical shown on sheets E-001 to E-401.">${esc(p.info.scope || "")}</textarea></label>
-    ${coCur() ? `<div class="wide co-inst"><b>Installing on this change order</b> <small>(goes on the PDF from what's placed and drawn on this change order)</small>${(() => { const li = coInstall(); return li.length ? `<table class="ts-table">${li.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${esc(v)}</td></tr>`).join("")}</table>` : `<p class="hint">Nothing placed or drawn on this change order yet.</p>`; })()}</div>` : ""}
     <label>Your company<input data-c="name" value="${esc(c.name)}"></label>
     <label>Phone<input data-c="phone" value="${esc(c.phone)}"></label>
     <label>Email<input data-c="email" value="${esc(c.email)}"></label>
@@ -5394,6 +5408,7 @@ function renderProp() {
     else { box.hidden = true; box.value = ""; q.vendor = sel.value; }
     save(false);
   });
+  t.querySelectorAll("[data-cofree]").forEach(b => b.onclick = () => { const c = coCur(); if (!c) return; const fr = c.free || (c.free = {}); if (b.dataset.c === "free") fr[b.dataset.cofree] = true; else delete fr[b.dataset.cofree]; save(); });
   t.querySelectorAll("[data-trip]").forEach(el => el.onchange = () => { const k = el.dataset.trip; p.trip[k] = el.type === "checkbox" ? el.checked : num(el.value); save(); });
   $("prProd").onchange = e => { p.prod = Math.max(0, +e.target.value || 0); save(); };
   $("prLists").onclick = () => { prShowLists = !prShowLists; renderTakeoff(); };
@@ -5442,7 +5457,9 @@ function bindList(t, k, list, save) {
   inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); add(); } });
 }
 // change order proposals list what's being installed: every count and footage line on that change order
-const coInstall = () => { const { counts, foot } = takeoffRows(); return [...counts.map(c => [c.name, `${c.qty.toLocaleString()} ${c.unit === "LF" ? "ft" : c.unit || "ea"}`]), ...foot.map(f => [f.label, `${f.total.toLocaleString()} ft`])]; };
+// [name, qty, key for Charge / No charge (symbol type or wire type id; none for imported lines), free?]
+const coInstall = () => { const { counts, foot } = takeoffRows(), c = coCur(), fr = (c && c.free) || {}, row = (name, q, k) => [name, q, k, !!(k && fr[k])];
+  return [...counts.map(x => row(x.name, `${x.qty.toLocaleString()} ${x.unit === "LF" ? "ft" : x.unit || "ea"}`, x.id && !impBy(x.id).length ? x.id : null)), ...foot.map(f => row(f.label, `${f.total.toLocaleString()} ft`, /^imp:/.test(f.key) ? null : f.key.split(":")[0]))]; };
 async function makeProposal() {
   const JsPDF = await loadJsPdf(), p = propOf(), c = company(), tt = propTotals(), j = job || { name: "Example job" };
   const doc = new JsPDF({ unit: "pt", format: "letter" }), W = 612, M = 54;
@@ -5462,7 +5479,7 @@ async function makeProposal() {
   [["Project", j.name], ["Customer", j.customer], ["Attention", p.info.attn], ["Job address", j.address], ["Bid date", j.bidDate && new Date(j.bidDate + "T12:00").toLocaleDateString()]].filter(r => r[1]).forEach(([k, v]) => { doc.setFont("helvetica", "bold"); doc.setFontSize(10.5); doc.text(k, M, y); doc.setFont("helvetica", "normal"); doc.text(String(v), M + 90, y); y += 15; });
   y += 6;
   if (p.info.scope) { text("Scope of work", 12, "bold"); text(p.info.scope); y += 6; }
-  if (coCur()) { const li = coInstall(); if (li.length) { text("Installing on this change order", 12, "bold"); li.forEach(([k, v]) => { need(15); doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.splitTextToSize(k, W - 2 * M - 110).forEach((ln, i) => { if (i) need(14); doc.text(ln, M + 10, y); if (!i) doc.text(v, W - M, y, { align: "right" }); y += 14; }); y += 1; }); y += 6; } }
+  if (coCur()) { const li = coInstall(); if (li.length) { text("Installing on this change order", 12, "bold"); li.forEach(([k, v, , free]) => { if (free) v += " · No charge"; need(15); doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.splitTextToSize(k, W - 2 * M - 110).forEach((ln, i) => { if (i) need(14); doc.text(ln, M + 10, y); if (!i) doc.text(v, W - M, y, { align: "right" }); y += 14; }); y += 1; }); y += 6; } }
   text("Price", 12, "bold");
   if (p.showBreak) {
     const line = (k, v) => { need(15); doc.setFont("helvetica", "normal"); doc.setFontSize(10.5); doc.text(k, M + 10, y); doc.text(money(v), W - M, y, { align: "right" }); y += 15; };
